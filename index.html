@@ -3,163 +3,140 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>MRI k-space Simulator</title>
+<title>Spin Echo Simulator</title>
 <style>
 :root{
   --bg:#f4f4f4;
   --card:#fff;
   --line:#9a9a9a;
   --text:#111;
-  --muted:#6d6d6d;
+  --muted:#666;
   --blue:#243d7a;
   --red:#d93b4b;
+  --green:#2b7a3d;
 }
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif}
+html,body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif
+}
 body{padding-bottom:env(safe-area-inset-bottom)}
-.app{max-width:980px;margin:0 auto;padding:14px 10px 28px}
-.topbar{
+.app{max-width:980px;margin:0 auto;padding:10px 8px 26px}
+header{
   display:flex;align-items:center;justify-content:space-between;
-  margin-bottom:10px
+  gap:10px;margin:2px 2px 10px
 }
-.topbar h1{font-size:18px;margin:0;font-weight:800}
-.segment{
-  display:flex;border:1px solid #aaa;border-radius:10px;overflow:hidden;background:#fff
+header h1{font-size:20px;margin:0;font-weight:850}
+.badge{
+  background:#111;color:#fff;border-radius:999px;padding:7px 11px;
+  font-size:13px;font-weight:800;white-space:nowrap
 }
-.segment button{
-  border:0;border-right:1px solid #aaa;background:#fff;padding:8px 13px;font-weight:700;font-size:14px
-}
-.segment button:last-child{border-right:0}
-.segment button.active{background:#111;color:#fff}
 .dual{
-  display:grid;
-  grid-template-columns:1fr 1fr;
-  gap:10px;
+  display:grid;grid-template-columns:1fr 1fr;gap:8px
 }
-.space h2{
-  text-align:center;
-  font-size:22px;
-  margin:8px 0 10px;
+.panel h2{
+  text-align:center;font-size:20px;margin:5px 0 7px
 }
 .card{
-  background:var(--card);
-  border:1px solid #e1e1e1;
-  border-radius:12px;
-  padding:8px;
+  background:#fff;border:1px solid #ddd;border-radius:12px;padding:5px
 }
-canvas{
-  width:100%;
-  height:auto;
-  display:block;
-  touch-action:none;
+canvas{display:block;width:100%;height:auto;touch-action:none}
+.sequence-card{
+  background:#fff;border:1px solid #ddd;border-radius:12px;
+  padding:10px;margin-top:10px
 }
-.console{
-  margin-top:12px;
-  background:#fff;
-  border-radius:12px;
-  border:1px solid #ddd;
-  padding:10px;
+.sequence-card h2{font-size:18px;margin:0 0 7px}
+#sequence{width:100%;height:220px;border:1px solid #ddd;background:#fff}
+.readouts{
+  display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px
 }
-.wave-title{
-  font-size:14px;
-  font-weight:800;
-  margin:2px 0 7px;
+.readout{
+  border:1px solid #ddd;border-radius:10px;background:#fafafa;
+  text-align:center;padding:7px 3px;font-size:11px
 }
-.wave{
-  width:100%;
-  height:180px;
-  border:1px solid #ddd;
-  background:#fff;
-}
-.status{
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  gap:8px;
-  margin-top:10px;
-}
-.status div{
-  border:1px solid #ddd;
-  border-radius:9px;
-  padding:8px;
-  text-align:center;
-  background:#fafafa;
-  font-size:13px;
-}
-.status b{display:block;font-size:16px;margin-top:2px}
+.readout b{display:block;font-size:15px;margin-top:2px}
 .controls{
-  margin-top:10px;
-  display:grid;
-  grid-template-columns:repeat(6,1fr);
-  gap:7px;
+  display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:8px
 }
-.controls button{
+button{
   border:1px solid #aaa;background:#fff;border-radius:10px;
-  padding:10px 4px;font-size:14px;font-weight:800;
+  padding:10px 3px;font-size:13px;font-weight:800
 }
-.controls button.primary{background:#111;color:#fff}
-.note{
-  font-size:12px;color:var(--muted);text-align:center;margin-top:8px
+button.primary{background:#111;color:#fff}
+button:active{transform:translateY(1px)}
+.explain{
+  margin-top:8px;border-radius:10px;background:#fff7da;
+  padding:9px 10px;font-size:13px;line-height:1.5;border:1px solid #eadb99
 }
-@media (max-width:560px){
-  .app{padding:8px 6px 22px}
-  .topbar h1{font-size:15px}
-  .segment button{padding:7px 10px;font-size:13px}
-  .dual{gap:6px}
-  .space h2{font-size:18px;margin:6px 0 6px}
-  .card{padding:4px;border-radius:8px}
-  .console{padding:8px}
-  .wave{height:150px}
+.legend{
+  display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;
+  font-size:11px;color:var(--muted)
+}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px}
+@media(max-width:560px){
+  .app{padding:7px 5px 22px}
+  header h1{font-size:16px}
+  .badge{font-size:11px;padding:6px 9px}
+  .dual{gap:5px}
+  .panel h2{font-size:17px}
+  .card{padding:3px;border-radius:9px}
+  #sequence{height:190px}
+  .sequence-card{padding:7px}
+  .sequence-card h2{font-size:16px}
+  .readout{font-size:10px;padding:6px 2px}
+  .readout b{font-size:13px}
   .controls{grid-template-columns:repeat(3,1fr)}
-  .controls button{font-size:13px;padding:9px 3px}
-  .status{grid-template-columns:repeat(3,1fr);gap:5px}
-  .status div{font-size:11px;padding:6px 3px}
-  .status b{font-size:14px}
+  button{font-size:12px;padding:9px 2px}
 }
 </style>
 </head>
 <body>
 <div class="app">
-  <div class="topbar">
-    <h1>MRI k-space Simulator</h1>
-    <div class="segment">
-      <button id="n8">8×8</button>
-      <button id="n16" class="active">16×16</button>
-    </div>
-  </div>
+  <header>
+    <h1>MRI Spin Echo Simulator</h1>
+    <div class="badge">SE：90°–180°–Echo</div>
+  </header>
 
   <main class="dual">
-    <section class="space">
+    <section class="panel">
       <h2>実空間</h2>
       <div class="card"><canvas id="real" width="430" height="430"></canvas></div>
     </section>
-    <section class="space">
+    <section class="panel">
       <h2>k 空間</h2>
       <div class="card"><canvas id="kspace" width="430" height="430"></canvas></div>
     </section>
   </main>
 
-  <section class="console">
-    <div class="wave-title">パルスシーケンス</div>
-    <canvas id="wave" class="wave" width="900" height="180"></canvas>
+  <section class="sequence-card">
+    <h2>パルスシーケンス</h2>
+    <canvas id="sequence" width="920" height="220"></canvas>
 
-    <div class="status">
-      <div>位置<b id="pos">(2, 0)</b></div>
-      <div>位相<b id="phase">45°</b></div>
-      <div>k位置<b id="kpos">(0, 0)</b></div>
+    <div class="readouts">
+      <div class="readout">時刻<b id="time">0 ms</b></div>
+      <div class="readout">段階<b id="stage">待機</b></div>
+      <div class="readout">横磁化<b id="mxy">0%</b></div>
+      <div class="readout">k位置<b id="kpos">(0, 0)</b></div>
     </div>
 
     <div class="controls">
-      <button id="left">左へ</button>
-      <button id="right">右へ</button>
-      <button id="up">上へ</button>
-      <button id="down">下へ</button>
-      <button id="rotate">回転</button>
-      <button id="step" class="primary">1点取得</button>
+      <button id="back">◀ 10 ms</button>
       <button id="play" class="primary">再生</button>
+      <button id="forward">10 ms ▶</button>
       <button id="reset">リセット</button>
-      <button id="clear">k空間消去</button>
+      <button id="speed">速度 ×1</button>
     </div>
-    <div class="note">実空間をタップするとスピンを移動できます。</div>
+
+    <div class="explain" id="explain">
+      90°パルス前。磁化はz方向にあり、横断面にはまだ信号がありません。
+    </div>
+    <div class="legend">
+      <span><span class="dot" style="background:#243d7a"></span>各スピン</span>
+      <span><span class="dot" style="background:#d93b4b"></span>合成横磁化</span>
+      <span><span class="dot" style="background:#2b7a3d"></span>取得済みk空間</span>
+    </div>
   </section>
 </div>
 
@@ -167,252 +144,290 @@ canvas{
 (() => {
   const real = document.getElementById('real');
   const kspace = document.getElementById('kspace');
-  const wave = document.getElementById('wave');
+  const sequence = document.getElementById('sequence');
   const rctx = real.getContext('2d');
   const kctx = kspace.getContext('2d');
-  const wctx = wave.getContext('2d');
+  const sctx = sequence.getContext('2d');
 
-  let N = 16;
-  let x = 2, y = 0;
-  let angle = Math.PI/4;
-  let acquired = new Set();
-  let orderIndex = 0;
-  let timer = null;
-
-  const posEl = document.getElementById('pos');
-  const phaseEl = document.getElementById('phase');
+  const timeEl = document.getElementById('time');
+  const stageEl = document.getElementById('stage');
+  const mxyEl = document.getElementById('mxy');
   const kposEl = document.getElementById('kpos');
+  const explainEl = document.getElementById('explain');
+  const playBtn = document.getElementById('play');
+  const speedBtn = document.getElementById('speed');
 
-  function layout(){
-    const margin = 34;
-    const size = 362;
-    const cell = size/N;
-    return {margin,size,cell};
-  }
+  const total = 140;
+  const t90 = 10;
+  const t180 = 60;
+  const echo = 110;
+  const adcStart = 94;
+  const adcEnd = 126;
+  const N = 16;
 
-  function clearCanvas(ctx,w,h){
+  let t = 0;
+  let timer = null;
+  let speed = 1;
+
+  const offsets = [-0.060,-0.045,-0.032,-0.018,-0.006,0.006,0.018,0.032,0.045,0.060];
+  const spinPositions = [
+    [-2.8,2.5],[-1.0,2.4],[1.0,2.3],[2.8,2.5],
+    [-2.6,0.6],[-0.8,0.7],[0.9,0.5],[2.7,0.6],
+    [-1.8,-1.8],[0,-1.7],[1.8,-1.8]
+  ];
+
+  function clear(ctx,w,h){
     ctx.clearRect(0,0,w,h);
     ctx.fillStyle='#fff';
     ctx.fillRect(0,0,w,h);
   }
 
-  function drawGrid(ctx){
-    const {margin,size,cell}=layout();
-    ctx.save();
-    ctx.strokeStyle='#8e8e8e';
-    ctx.lineWidth=N===16?0.75:1;
-    for(let i=0;i<=N;i++){
+  function drawGrid(ctx,n=8){
+    const margin=38,size=354,cell=size/n;
+    ctx.strokeStyle='#999';
+    ctx.lineWidth=0.8;
+    for(let i=0;i<=n;i++){
       const p=margin+i*cell;
       ctx.beginPath();ctx.moveTo(p,margin);ctx.lineTo(p,margin+size);ctx.stroke();
       ctx.beginPath();ctx.moveTo(margin,p);ctx.lineTo(margin+size,p);ctx.stroke();
     }
-    ctx.restore();
+    return {margin,size,cell};
   }
 
-  function gridToCanvas(gx,gy){
-    const {margin,size,cell}=layout();
-    return [margin+size/2+gx*cell, margin+size/2-gy*cell];
+  function spinPhase(offset){
+    if(t < t90) return null;
+    if(t < t180) return offset*(t-t90);
+    return offset*(t180-t90) - offset*(t-t180);
   }
 
-  function drawArrow(ctx,cx,cy,a){
-    const len = N===16 ? 22 : 30;
+  function transverseAmplitude(){
+    if(t < t90) return 0;
+    const decay = Math.exp(-(t-t90)/180);
+    if(t <= echo) {
+      const spread = Math.abs(echo-t)/100;
+      return decay*Math.max(0,1-spread*0.8);
+    }
+    return decay*Math.max(0,1-(t-echo)/100);
+  }
+
+  function drawArrow(ctx,cx,cy,a,len,color,width=4){
     const ex=cx+len*Math.cos(a), ey=cy-len*Math.sin(a);
-    ctx.save();
-    ctx.strokeStyle='#243d7a';
-    ctx.fillStyle='#243d7a';
-    ctx.lineWidth=N===16?5:7;
+    ctx.strokeStyle=color;
+    ctx.fillStyle=color;
+    ctx.lineWidth=width;
     ctx.lineCap='round';
     ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(ex,ey);ctx.stroke();
-
-    const head=N===16?7:10;
-    const phi=Math.atan2(ey-cy,ex-cx);
+    const head=7,phi=Math.atan2(ey-cy,ex-cx);
     ctx.beginPath();
     ctx.moveTo(ex,ey);
     ctx.lineTo(ex-head*Math.cos(phi-Math.PI/6),ey-head*Math.sin(phi-Math.PI/6));
     ctx.lineTo(ex-head*Math.cos(phi+Math.PI/6),ey-head*Math.sin(phi+Math.PI/6));
     ctx.closePath();ctx.fill();
-
-    ctx.fillStyle='#d93b4b';
-    ctx.beginPath();ctx.arc(cx,cy,N===16?4.5:6,0,Math.PI*2);ctx.fill();
-    ctx.restore();
   }
 
   function drawReal(){
-    clearCanvas(rctx,430,430);
-    drawGrid(rctx);
-    const [cx,cy]=gridToCanvas(x,y);
-    drawArrow(rctx,cx,cy,angle);
+    clear(rctx,430,430);
+    const {margin,size,cell}=drawGrid(rctx,8);
+    const cx0=margin+size/2,cy0=margin+size/2;
 
-    const {margin,size}=layout();
     rctx.fillStyle='#111';
-    rctx.font=(N===16?'13px':'16px')+' -apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif';
-    rctx.fillText('(0, 0)',margin+size/2-28,margin+size/2+23);
-    rctx.fillText(`(${x}, ${y})`,cx+8,cy+5);
+    rctx.font='14px -apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif';
+    rctx.fillText('(0,0)',cx0-20,cy0+20);
+
+    if(t<t90){
+      rctx.fillStyle='#777';
+      rctx.textAlign='center';
+      rctx.font='16px -apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif';
+      rctx.fillText('縦磁化（z方向）',cx0,cy0-4);
+      rctx.textAlign='left';
+      spinPositions.forEach(([gx,gy])=>{
+        const cx=cx0+gx*cell/1.2,cy=cy0-gy*cell/1.2;
+        rctx.fillStyle='#243d7a';
+        rctx.beginPath();rctx.arc(cx,cy,4,0,Math.PI*2);rctx.fill();
+      });
+      return;
+    }
+
+    let sumX=0,sumY=0;
+    spinPositions.forEach(([gx,gy],i)=>{
+      const cx=cx0+gx*cell/1.2,cy=cy0-gy*cell/1.2;
+      const ph=spinPhase(offsets[i%offsets.length]);
+      drawArrow(rctx,cx,cy,ph,20,'#243d7a',3.5);
+      rctx.fillStyle='#243d7a';
+      rctx.beginPath();rctx.arc(cx,cy,3.5,0,Math.PI*2);rctx.fill();
+      sumX+=Math.cos(ph);sumY+=Math.sin(ph);
+    });
+
+    const mag=Math.hypot(sumX,sumY)/spinPositions.length;
+    const a=Math.atan2(sumY,sumX);
+    drawArrow(rctx,cx0,cy0,a,54*mag,'#d93b4b',7);
+    rctx.fillStyle='#d93b4b';
+    rctx.beginPath();rctx.arc(cx0,cy0,5,0,Math.PI*2);rctx.fill();
   }
 
-  function currentK(){
-    if(orderIndex>=N*N) return null;
-    const row=Math.floor(orderIndex/N);
-    const col=orderIndex%N;
-    const ky=row-Math.floor(N/2);
-    const kx=(row%2===0 ? col : N-1-col)-Math.floor(N/2);
-    return {kx,ky,row,col};
+  function kAtTime(){
+    if(t<adcStart || t>adcEnd) return null;
+    const u=(t-adcStart)/(adcEnd-adcStart);
+    const kx=Math.round(-N/2+u*(N-1));
+    return {kx,ky:0,u};
   }
 
   function drawKspace(){
-    clearCanvas(kctx,430,430);
-    drawGrid(kctx);
-    const {margin,size,cell}=layout();
+    clear(kctx,430,430);
+    const margin=38,size=354,cell=size/N;
+    kctx.strokeStyle='#aaa';
+    kctx.lineWidth=0.55;
+    for(let i=0;i<=N;i++){
+      const p=margin+i*cell;
+      kctx.beginPath();kctx.moveTo(p,margin);kctx.lineTo(p,margin+size);kctx.stroke();
+      kctx.beginPath();kctx.moveTo(margin,p);kctx.lineTo(margin+size,p);kctx.stroke();
+    }
 
     for(let row=0;row<N;row++){
       for(let col=0;col<N;col++){
-        const key=`${row},${col}`;
-        const cx=margin+(col+.5)*cell;
-        const cy=margin+(row+.5)*cell;
-        kctx.beginPath();
-        kctx.fillStyle=acquired.has(key)?'#243d7a':'#b7c0d1';
-        kctx.arc(cx,cy,N===16?1.8:3,0,Math.PI*2);
-        kctx.fill();
+        const cx=margin+(col+.5)*cell,cy=margin+(row+.5)*cell;
+        kctx.fillStyle='#c2c9d6';
+        kctx.beginPath();kctx.arc(cx,cy,1.4,0,Math.PI*2);kctx.fill();
       }
     }
 
-    const cur=currentK();
-    if(cur){
-      const cx=margin+(cur.col+.5)*cell;
-      const cy=margin+(cur.row+.5)*cell;
-      kctx.strokeStyle='#d93b4b';
-      kctx.lineWidth=2;
-      kctx.beginPath();kctx.arc(cx,cy,N===16?5:7,0,Math.PI*2);kctx.stroke();
-      kposEl.textContent=`(${cur.kx}, ${cur.ky})`;
+    const kyRow=N/2;
+    if(t>=adcStart){
+      const endCol=Math.min(N-1,Math.max(0,Math.floor(((Math.min(t,adcEnd)-adcStart)/(adcEnd-adcStart))*N)));
+      for(let col=0;col<=endCol;col++){
+        const cx=margin+(col+.5)*cell,cy=margin+(kyRow+.5)*cell;
+        kctx.fillStyle='#2b7a3d';
+        kctx.beginPath();kctx.arc(cx,cy,4,0,Math.PI*2);kctx.fill();
+      }
+    }
+
+    const kp=kAtTime();
+    if(kp){
+      const col=Math.min(N-1,Math.max(0,Math.round(kp.u*(N-1))));
+      const cx=margin+(col+.5)*cell,cy=margin+(kyRow+.5)*cell;
+      kctx.strokeStyle='#d93b4b';kctx.lineWidth=2;
+      kctx.beginPath();kctx.arc(cx,cy,7,0,Math.PI*2);kctx.stroke();
+      kposEl.textContent=`(${kp.kx}, 0)`;
     }else{
-      kposEl.textContent='完了';
+      kposEl.textContent='(0, 0)';
     }
 
     kctx.fillStyle='#111';
-    kctx.font=(N===16?'13px':'17px')+' -apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif';
-    kctx.fillText('(0,0)',margin+size/2-20,margin+size/2+17);
+    kctx.font='14px -apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif';
+    kctx.fillText('(0,0)',margin+size/2-18,margin+size/2+18);
   }
 
-  function drawWave(){
-    clearCanvas(wctx,900,180);
+  function xFromTime(tt){ return 78 + (tt/total)*820; }
+
+  function drawSequence(){
+    clear(sctx,920,220);
     const rows=[
-      {label:'RF',y:28},
-      {label:'Gz',y:62},
-      {label:'Gy',y:96},
-      {label:'Gx',y:130},
-      {label:'ADC',y:164}
+      {label:'RF',y:34},{label:'Gz',y:72},{label:'Gy',y:110},
+      {label:'Gx',y:148},{label:'ADC',y:188}
     ];
-    wctx.font='14px -apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif';
-    wctx.strokeStyle='#b5b5b5';
-    wctx.lineWidth=1;
+    sctx.font='14px -apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif';
+    sctx.strokeStyle='#bbb';sctx.lineWidth=1;
     rows.forEach(r=>{
-      wctx.fillStyle='#111'; wctx.fillText(r.label,8,r.y+4);
-      wctx.beginPath();wctx.moveTo(48,r.y);wctx.lineTo(888,r.y);wctx.stroke();
+      sctx.fillStyle='#111';sctx.fillText(r.label,12,r.y+4);
+      sctx.beginPath();sctx.moveTo(52,r.y);sctx.lineTo(902,r.y);sctx.stroke();
     });
 
-    // RF pulse
-    wctx.strokeStyle='#111'; wctx.lineWidth=2;
-    wctx.beginPath();
-    for(let i=0;i<=80;i++){
-      const xx=95+i*1.2;
-      const env=Math.exp(-Math.pow((i-40)/18,2));
-      const yy=28-12*env*Math.sin(i*0.65);
-      i===0?wctx.moveTo(xx,yy):wctx.lineTo(xx,yy);
+    function rfPulse(center,amp,width){
+      const x0=xFromTime(center-width/2),x1=xFromTime(center+width/2);
+      sctx.strokeStyle='#111';sctx.lineWidth=2;sctx.beginPath();
+      for(let i=0;i<=80;i++){
+        const xx=x0+(x1-x0)*i/80;
+        const env=Math.exp(-Math.pow((i-40)/17,2));
+        const yy=34-amp*env*Math.sin(i*0.7);
+        i===0?sctx.moveTo(xx,yy):sctx.lineTo(xx,yy);
+      }
+      sctx.stroke();
     }
-    wctx.stroke();
+    rfPulse(t90,16,10);
+    rfPulse(t180,24,12);
 
-    // Gz slice select
-    wctx.beginPath();
-    wctx.moveTo(90,62);wctx.lineTo(105,48);wctx.lineTo(185,48);wctx.lineTo(200,62);
-    wctx.lineTo(215,72);wctx.lineTo(250,72);wctx.lineTo(265,62);
-    wctx.stroke();
+    sctx.strokeStyle='#111';sctx.lineWidth=2;
+    // Gz slice gradients
+    [[t90-5,t90+5,16],[t180-6,t180+6,22]].forEach(([a,b,h])=>{
+      const xa=xFromTime(a),xb=xFromTime(b);
+      sctx.beginPath();sctx.moveTo(xa,72);sctx.lineTo(xa+5,72-h);sctx.lineTo(xb-5,72-h);sctx.lineTo(xb,72);sctx.stroke();
+    });
 
-    // Gy blips
-    for(let i=0;i<8;i++){
-      const x0=310+i*65;
-      wctx.beginPath();
-      wctx.moveTo(x0,96);wctx.lineTo(x0+7,86);wctx.lineTo(x0+16,96);
-      wctx.stroke();
+    // Gx prephaser
+    let xa=xFromTime(78), xb=xFromTime(90);
+    sctx.beginPath();sctx.moveTo(xa,148);sctx.lineTo(xa+5,160);sctx.lineTo(xb-5,160);sctx.lineTo(xb,148);sctx.stroke();
+    // readout
+    xa=xFromTime(adcStart);xb=xFromTime(adcEnd);
+    sctx.beginPath();sctx.moveTo(xa,148);sctx.lineTo(xa+5,134);sctx.lineTo(xb-5,134);sctx.lineTo(xb,148);sctx.stroke();
+
+    // ADC
+    sctx.fillStyle='rgba(43,122,61,0.20)';
+    sctx.fillRect(xFromTime(adcStart),176,xFromTime(adcEnd)-xFromTime(adcStart),24);
+
+    // echo envelope
+    sctx.strokeStyle='#d93b4b';sctx.lineWidth=2;sctx.beginPath();
+    for(let tt=adcStart;tt<=adcEnd;tt+=0.5){
+      const env=Math.exp(-Math.pow((tt-echo)/7,2));
+      const yy=188-18*env*Math.sin((tt-adcStart)*2.2);
+      const xx=xFromTime(tt);
+      tt===adcStart?sctx.moveTo(xx,yy):sctx.lineTo(xx,yy);
     }
+    sctx.stroke();
 
-    // Gx oscillating EPI readout
-    wctx.beginPath();
-    wctx.moveTo(285,130);
-    for(let i=0;i<9;i++){
-      const x0=300+i*65;
-      const top=i%2===0?115:145;
-      wctx.lineTo(x0,130);wctx.lineTo(x0+8,top);wctx.lineTo(x0+55,top);wctx.lineTo(x0+65,130);
-    }
-    wctx.stroke();
+    // labels
+    sctx.fillStyle='#555';sctx.font='12px -apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif';
+    sctx.fillText('90°',xFromTime(t90)-10,16);
+    sctx.fillText('180°',xFromTime(t180)-14,16);
+    sctx.fillText('Echo',xFromTime(echo)-14,168);
 
-    // ADC windows
-    wctx.fillStyle='rgba(0,0,0,0.16)';
-    for(let i=0;i<8;i++){
-      const x0=308+i*65;
-      wctx.fillRect(x0,154,45,20);
-    }
+    // moving cursor
+    const xc=xFromTime(t);
+    sctx.strokeStyle='#d93b4b';sctx.lineWidth=2;
+    sctx.beginPath();sctx.moveTo(xc,8);sctx.lineTo(xc,208);sctx.stroke();
+  }
+
+  function stageInfo(){
+    if(t<t90) return ['待機','90°パルス前。磁化はz方向にあり、横断面にはまだ信号がありません。'];
+    if(t<t90+5) return ['90° RF','90°パルスにより磁化を横断面へ倒します。直後はスピンの位相が揃っています。'];
+    if(t<t180) return ['位相分散','局所磁場差により、スピンが異なる速さで回転して位相が分散します。'];
+    if(t<t180+5) return ['180° RF','180°パルスで各スピンの位相関係を反転します。速いスピンと遅いスピンの前後関係が入れ替わります。'];
+    if(t<adcStart) return ['再収束','180°パルス後、位相差が徐々に縮まり、Echoに向けて再収束します。'];
+    if(t<=adcEnd) return ['信号収集','GxをかけながらADCを開き、k空間中央行を左から右へ読み出します。Echo中心がk空間中心に対応します。'];
+    return ['終了','中央の1行を取得しました。次のTRでは別のGyを加えて、別のky行を取得します。'];
   }
 
   function render(){
-    drawReal(); drawKspace(); drawWave();
-    posEl.textContent=`(${x}, ${y})`;
-    phaseEl.textContent=`${Math.round(angle*180/Math.PI)}°`;
+    drawReal();drawKspace();drawSequence();
+    timeEl.textContent=`${Math.round(t)} ms`;
+    const [stage,desc]=stageInfo();
+    stageEl.textContent=stage;
+    explainEl.textContent=desc;
+    mxyEl.textContent=`${Math.round(transverseAmplitude()*100)}%`;
   }
 
-  function clamp(v){
-    const max=Math.floor(N/2)-1;
-    const min=-Math.floor(N/2);
-    return Math.max(min,Math.min(max,v));
+  function stop(){
+    if(timer){clearInterval(timer);timer=null}
+    playBtn.textContent='再生';
   }
 
-  function step(){
-    if(orderIndex>=N*N){
-      if(timer){clearInterval(timer);timer=null;document.getElementById('play').textContent='再生'}
-      return;
-    }
-    const cur=currentK();
-    acquired.add(`${cur.row},${cur.col}`);
-    orderIndex++;
-    render();
+  function play(){
+    if(timer){stop();return}
+    playBtn.textContent='停止';
+    timer=setInterval(()=>{
+      t+=1*speed;
+      if(t>=total){t=total;stop()}
+      render();
+    },35);
   }
 
-  document.getElementById('left').onclick=()=>{x=clamp(x-1);render()};
-  document.getElementById('right').onclick=()=>{x=clamp(x+1);render()};
-  document.getElementById('up').onclick=()=>{y=clamp(y+1);render()};
-  document.getElementById('down').onclick=()=>{y=clamp(y-1);render()};
-  document.getElementById('rotate').onclick=()=>{angle=(angle+Math.PI/8)%(Math.PI*2);render()};
-  document.getElementById('step').onclick=step;
-  document.getElementById('play').onclick=()=>{
-    const b=document.getElementById('play');
-    if(timer){clearInterval(timer);timer=null;b.textContent='再生'}
-    else{timer=setInterval(step,120);b.textContent='停止'}
+  document.getElementById('play').onclick=play;
+  document.getElementById('back').onclick=()=>{stop();t=Math.max(0,t-10);render()};
+  document.getElementById('forward').onclick=()=>{stop();t=Math.min(total,t+10);render()};
+  document.getElementById('reset').onclick=()=>{stop();t=0;render()};
+  document.getElementById('speed').onclick=()=>{
+    speed = speed===1 ? 2 : speed===2 ? 0.5 : 1;
+    speedBtn.textContent=`速度 ×${speed}`;
   };
-  document.getElementById('reset').onclick=()=>{
-    x=2;y=0;angle=Math.PI/4;acquired.clear();orderIndex=0;
-    if(timer){clearInterval(timer);timer=null;document.getElementById('play').textContent='再生'}
-    render();
-  };
-  document.getElementById('clear').onclick=()=>{acquired.clear();orderIndex=0;render()};
-
-  function setN(n){
-    N=n; acquired.clear(); orderIndex=0; x=Math.min(2,Math.floor(N/2)-1); y=0;
-    document.getElementById('n8').classList.toggle('active',N===8);
-    document.getElementById('n16').classList.toggle('active',N===16);
-    render();
-  }
-  document.getElementById('n8').onclick=()=>setN(8);
-  document.getElementById('n16').onclick=()=>setN(16);
-
-  real.addEventListener('pointerdown',ev=>{
-    const rect=real.getBoundingClientRect();
-    const sx=real.width/rect.width, sy=real.height/rect.height;
-    const px=(ev.clientX-rect.left)*sx;
-    const py=(ev.clientY-rect.top)*sy;
-    const {margin,size,cell}=layout();
-    x=clamp(Math.round((px-(margin+size/2))/cell));
-    y=clamp(Math.round(((margin+size/2)-py)/cell));
-    render();
-  });
 
   render();
 })();
