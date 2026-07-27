@@ -3,433 +3,313 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Spin Echo Simulator</title>
+<title>k-space Cycle & Off-resonance Simulator</title>
 <style>
 :root{
-  --bg:#f4f4f4;
-  --card:#fff;
-  --line:#9a9a9a;
-  --text:#111;
-  --muted:#666;
-  --blue:#243d7a;
-  --red:#d93b4b;
-  --green:#2b7a3d;
+  --bg:#f4f4f4; --card:#fff; --text:#111; --muted:#666;
+  --grid:#a5a5a5; --blue:#243d7a; --red:#d93b4b;
 }
 *{box-sizing:border-box}
-html,body{
-  margin:0;
-  background:var(--bg);
-  color:var(--text);
-  font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif
-}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif}
 body{padding-bottom:env(safe-area-inset-bottom)}
-.app{max-width:980px;margin:0 auto;padding:10px 8px 26px}
-header{
-  display:flex;align-items:center;justify-content:space-between;
-  gap:10px;margin:2px 2px 10px
-}
-header h1{font-size:20px;margin:0;font-weight:850}
-.badge{
-  background:#111;color:#fff;border-radius:999px;padding:7px 11px;
-  font-size:13px;font-weight:800;white-space:nowrap
-}
-.dual{
-  display:grid;grid-template-columns:1fr 1fr;gap:8px
-}
-.panel h2{
-  text-align:center;font-size:20px;margin:5px 0 7px
-}
-.card{
-  background:#fff;border:1px solid #ddd;border-radius:12px;padding:5px
-}
+.app{max-width:1040px;margin:0 auto;padding:10px 7px 28px}
+header{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin:2px 3px 8px}
+h1{font-size:18px;margin:0}
+.subtitle{font-size:11px;color:var(--muted);margin-top:3px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.panel h2{text-align:center;font-size:18px;margin:7px 0}
+.card{background:#fff;border:1px solid #ddd;border-radius:11px;padding:5px}
 canvas{display:block;width:100%;height:auto;touch-action:none}
-.sequence-card{
-  background:#fff;border:1px solid #ddd;border-radius:12px;
-  padding:10px;margin-top:10px
+.controls{margin-top:9px;background:#fff;border:1px solid #ddd;border-radius:11px;padding:9px}
+.row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:7px}
+label{font-size:11px;font-weight:700}
+select,input,button{
+  width:100%;font:inherit;border:1px solid #aaa;border-radius:9px;background:#fff;
+  min-height:39px;padding:7px
 }
-.sequence-card h2{font-size:18px;margin:0 0 7px}
-#sequence{width:100%;height:220px;border:1px solid #ddd;background:#fff}
-.readouts{
-  display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:8px
-}
-.readout{
-  border:1px solid #ddd;border-radius:10px;background:#fafafa;
-  text-align:center;padding:7px 3px;font-size:11px
-}
-.readout b{display:block;font-size:15px;margin-top:2px}
-.controls{
-  display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-top:8px
-}
-button{
-  border:1px solid #aaa;background:#fff;border-radius:10px;
-  padding:10px 3px;font-size:13px;font-weight:800
-}
+button{font-weight:800}
 button.primary{background:#111;color:#fff}
-button:active{transform:translateY(1px)}
-.explain{
-  margin-top:8px;border-radius:10px;background:#fff7da;
-  padding:9px 10px;font-size:13px;line-height:1.5;border:1px solid #eadb99
-}
-.legend{
-  display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;
-  font-size:11px;color:var(--muted)
-}
-.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:4px}
+.readout{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:7px}
+.readout>div{border:1px solid #ddd;background:#fafafa;border-radius:9px;text-align:center;padding:6px 2px;font-size:10px}
+.readout b{display:block;font-size:14px;margin-top:2px}
+.explain{margin-top:8px;background:#fff7da;border:1px solid #eadb99;border-radius:9px;padding:8px;font-size:12px;line-height:1.5}
+.legend{font-size:11px;color:#666;margin-top:6px}
 @media(max-width:560px){
   .app{padding:7px 5px 22px}
-  header h1{font-size:16px}
-  .badge{font-size:11px;padding:6px 9px}
-  .dual{gap:5px}
-  .panel h2{font-size:17px}
-  .card{padding:3px;border-radius:9px}
-  #sequence{height:190px}
-  .sequence-card{padding:7px}
-  .sequence-card h2{font-size:16px}
-  .readout{font-size:10px;padding:6px 2px}
-  .readout b{font-size:13px}
-  .controls{grid-template-columns:repeat(3,1fr)}
-  button{font-size:12px;padding:9px 2px}
+  h1{font-size:15px}
+  .subtitle{font-size:10px}
+  .panel h2{font-size:16px}
+  .card{padding:3px}
+  .row{grid-template-columns:repeat(2,1fr)}
+  .readout{grid-template-columns:repeat(4,1fr)}
+  .readout b{font-size:12px}
 }
 </style>
 </head>
 <body>
 <div class="app">
-  <header>
-    <h1>MRI Spin Echo Simulator</h1>
-    <div class="badge">SE：90°–180°–Echo</div>
-  </header>
+<header>
+  <div>
+    <h1>k-space Cycle & Off-resonance Simulator</h1>
+    <div class="subtitle">(p, q)＝x方向にpサイクル、y方向にqサイクル</div>
+  </div>
+</header>
 
-  <main class="dual">
-    <section class="panel">
-      <h2>実空間</h2>
-      <div class="card"><canvas id="real" width="430" height="430"></canvas></div>
-    </section>
-    <section class="panel">
-      <h2>k 空間</h2>
-      <div class="card"><canvas id="kspace" width="430" height="430"></canvas></div>
-    </section>
-  </main>
-
-  <section class="sequence-card">
-    <h2>パルスシーケンス</h2>
-    <canvas id="sequence" width="920" height="220"></canvas>
-
-    <div class="readouts">
-      <div class="readout">時刻<b id="time">0 ms</b></div>
-      <div class="readout">段階<b id="stage">待機</b></div>
-      <div class="readout">横磁化<b id="mxy">0%</b></div>
-      <div class="readout">k位置<b id="kpos">(0, 0)</b></div>
-    </div>
-
-    <div class="controls">
-      <button id="back">◀ 10 ms</button>
-      <button id="play" class="primary">再生</button>
-      <button id="forward">10 ms ▶</button>
-      <button id="reset">リセット</button>
-      <button id="speed">速度 ×1</button>
-    </div>
-
-    <div class="explain" id="explain">
-      90°パルス前。磁化はz方向にあり、横断面にはまだ信号がありません。
-    </div>
-    <div class="legend">
-      <span><span class="dot" style="background:#243d7a"></span>各スピン</span>
-      <span><span class="dot" style="background:#d93b4b"></span>合成横磁化</span>
-      <span><span class="dot" style="background:#2b7a3d"></span>取得済みk空間</span>
-    </div>
+<main class="grid2">
+  <section class="panel">
+    <h2>実空間の位相</h2>
+    <div class="card"><canvas id="phaseCanvas" width="440" height="440"></canvas></div>
   </section>
+  <section class="panel">
+    <h2>k 空間・取得順</h2>
+    <div class="card"><canvas id="kCanvas" width="440" height="440"></canvas></div>
+  </section>
+  <section class="panel">
+    <h2>理想再構成</h2>
+    <div class="card"><canvas id="idealCanvas" width="440" height="440"></canvas></div>
+  </section>
+  <section class="panel">
+    <h2>オフレゾナンスあり</h2>
+    <div class="card"><canvas id="offCanvas" width="440" height="440"></canvas></div>
+  </section>
+</main>
+
+<section class="controls">
+  <div class="row">
+    <label>p（kx）
+      <input id="p" type="range" min="-4" max="4" step="1" value="2">
+    </label>
+    <label>q（ky）
+      <input id="q" type="range" min="-4" max="4" step="1" value="1">
+    </label>
+    <label>取得順
+      <select id="order">
+        <option value="linear">Linear ky</option>
+        <option value="centric">Centric ky</option>
+        <option value="epi">Single-shot EPI</option>
+      </select>
+    </label>
+    <label>オフレゾナンス Δf
+      <input id="df" type="range" min="-80" max="80" step="5" value="30">
+    </label>
+  </div>
+
+  <div class="row">
+    <label>echo spacing
+      <input id="esp" type="range" min="1" max="10" step="1" value="4">
+    </label>
+    <button id="step">1点進める</button>
+    <button id="play" class="primary">再生</button>
+    <button id="reset">リセット</button>
+  </div>
+
+  <div class="readout">
+    <div>選択点<b id="pq">(2, 1)</b></div>
+    <div>x周期数<b id="px">2</b></div>
+    <div>y周期数<b id="qy">1</b></div>
+    <div>取得時刻<b id="time">0 ms</b></div>
+  </div>
+
+  <div class="explain" id="explain">
+    (2,1)では、視野全体でx方向に2周期、y方向に1周期の位相変化を持つ基底関数を測定します。
+  </div>
+  <div class="legend">色は位相を表します。オフレゾナンスは取得時刻に応じて追加位相 2πΔf·t を与えます。</div>
+</section>
 </div>
 
 <script>
 (() => {
-  const real = document.getElementById('real');
-  const kspace = document.getElementById('kspace');
-  const sequence = document.getElementById('sequence');
-  const rctx = real.getContext('2d');
-  const kctx = kspace.getContext('2d');
-  const sctx = sequence.getContext('2d');
+  const phaseCanvas=document.getElementById('phaseCanvas');
+  const kCanvas=document.getElementById('kCanvas');
+  const idealCanvas=document.getElementById('idealCanvas');
+  const offCanvas=document.getElementById('offCanvas');
+  const pEl=document.getElementById('p');
+  const qEl=document.getElementById('q');
+  const orderEl=document.getElementById('order');
+  const dfEl=document.getElementById('df');
+  const espEl=document.getElementById('esp');
+  const pqEl=document.getElementById('pq');
+  const pxEl=document.getElementById('px');
+  const qyEl=document.getElementById('qy');
+  const timeEl=document.getElementById('time');
+  const explainEl=document.getElementById('explain');
+  const playBtn=document.getElementById('play');
 
-  const timeEl = document.getElementById('time');
-  const stageEl = document.getElementById('stage');
-  const mxyEl = document.getElementById('mxy');
-  const kposEl = document.getElementById('kpos');
-  const explainEl = document.getElementById('explain');
-  const playBtn = document.getElementById('play');
-  const speedBtn = document.getElementById('speed');
+  const N=16;
+  let index=0,timer=null;
+  let acquisition=[];
 
-  const total = 140;
-  const t90 = 10;
-  const t180 = 60;
-  const echo = 110;
-  const adcStart = 94;
-  const adcEnd = 126;
-  const N = 16;
-
-  let t = 0;
-  let timer = null;
-  let speed = 1;
-
-  const offsets = [-0.060,-0.045,-0.032,-0.018,-0.006,0.006,0.018,0.032,0.045,0.060];
-  const spinPositions = [
-    [-2.8,2.5],[-1.0,2.4],[1.0,2.3],[2.8,2.5],
-    [-2.6,0.6],[-0.8,0.7],[0.9,0.5],[2.7,0.6],
-    [-1.8,-1.8],[0,-1.7],[1.8,-1.8]
-  ];
-
-  function clear(ctx,w,h){
-    ctx.clearRect(0,0,w,h);
-    ctx.fillStyle='#fff';
-    ctx.fillRect(0,0,w,h);
+  function phaseColor(phi){
+    const h=((phi%(2*Math.PI))+2*Math.PI)%(2*Math.PI)*180/Math.PI;
+    return `hsl(${h},75%,52%)`;
   }
 
-  function drawGrid(ctx,n=8){
-    const margin=38,size=354,cell=size/n;
-    ctx.strokeStyle='#999';
-    ctx.lineWidth=0.8;
-    for(let i=0;i<=n;i++){
-      const p=margin+i*cell;
-      ctx.beginPath();ctx.moveTo(p,margin);ctx.lineTo(p,margin+size);ctx.stroke();
-      ctx.beginPath();ctx.moveTo(margin,p);ctx.lineTo(margin+size,p);ctx.stroke();
+  function clear(ctx){
+    ctx.clearRect(0,0,440,440);
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,440,440);
+  }
+
+  function generateOrder(){
+    const coords=[];
+    const half=N/2;
+    const kys=[...Array(N)].map((_,i)=>i-half);
+    if(orderEl.value==='centric'){
+      kys.sort((a,b)=>Math.abs(a)-Math.abs(b) || a-b);
     }
-    return {margin,size,cell};
-  }
-
-  function spinPhase(offset){
-    if(t < t90) return null;
-    if(t < t180) return offset*(t-t90);
-    return offset*(t180-t90) - offset*(t-t180);
-  }
-
-  function transverseAmplitude(){
-    if(t < t90) return 0;
-    const decay = Math.exp(-(t-t90)/180);
-    if(t <= echo) {
-      const spread = Math.abs(echo-t)/100;
-      return decay*Math.max(0,1-spread*0.8);
-    }
-    return decay*Math.max(0,1-(t-echo)/100);
-  }
-
-  function drawArrow(ctx,cx,cy,a,len,color,width=4){
-    const ex=cx+len*Math.cos(a), ey=cy-len*Math.sin(a);
-    ctx.strokeStyle=color;
-    ctx.fillStyle=color;
-    ctx.lineWidth=width;
-    ctx.lineCap='round';
-    ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(ex,ey);ctx.stroke();
-    const head=7,phi=Math.atan2(ey-cy,ex-cx);
-    ctx.beginPath();
-    ctx.moveTo(ex,ey);
-    ctx.lineTo(ex-head*Math.cos(phi-Math.PI/6),ey-head*Math.sin(phi-Math.PI/6));
-    ctx.lineTo(ex-head*Math.cos(phi+Math.PI/6),ey-head*Math.sin(phi+Math.PI/6));
-    ctx.closePath();ctx.fill();
-  }
-
-  function drawReal(){
-    clear(rctx,430,430);
-    const {margin,size,cell}=drawGrid(rctx,8);
-    const cx0=margin+size/2,cy0=margin+size/2;
-
-    rctx.fillStyle='#111';
-    rctx.font='14px -apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif';
-    rctx.fillText('(0,0)',cx0-20,cy0+20);
-
-    if(t<t90){
-      rctx.fillStyle='#777';
-      rctx.textAlign='center';
-      rctx.font='16px -apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif';
-      rctx.fillText('縦磁化（z方向）',cx0,cy0-4);
-      rctx.textAlign='left';
-      spinPositions.forEach(([gx,gy])=>{
-        const cx=cx0+gx*cell/1.2,cy=cy0-gy*cell/1.2;
-        rctx.fillStyle='#243d7a';
-        rctx.beginPath();rctx.arc(cx,cy,4,0,Math.PI*2);rctx.fill();
+    if(orderEl.value==='epi'){
+      kys.forEach((ky,r)=>{
+        const kxs=[...Array(N)].map((_,i)=>i-half);
+        if(r%2===1)kxs.reverse();
+        kxs.forEach(kx=>coords.push({kx,ky}));
       });
-      return;
-    }
-
-    let sumX=0,sumY=0;
-    spinPositions.forEach(([gx,gy],i)=>{
-      const cx=cx0+gx*cell/1.2,cy=cy0-gy*cell/1.2;
-      const ph=spinPhase(offsets[i%offsets.length]);
-      drawArrow(rctx,cx,cy,ph,20,'#243d7a',3.5);
-      rctx.fillStyle='#243d7a';
-      rctx.beginPath();rctx.arc(cx,cy,3.5,0,Math.PI*2);rctx.fill();
-      sumX+=Math.cos(ph);sumY+=Math.sin(ph);
-    });
-
-    const mag=Math.hypot(sumX,sumY)/spinPositions.length;
-    const a=Math.atan2(sumY,sumX);
-    drawArrow(rctx,cx0,cy0,a,54*mag,'#d93b4b',7);
-    rctx.fillStyle='#d93b4b';
-    rctx.beginPath();rctx.arc(cx0,cy0,5,0,Math.PI*2);rctx.fill();
-  }
-
-  function kAtTime(){
-    if(t<adcStart || t>adcEnd) return null;
-    const u=(t-adcStart)/(adcEnd-adcStart);
-    const kx=Math.round(-N/2+u*(N-1));
-    return {kx,ky:0,u};
-  }
-
-  function drawKspace(){
-    clear(kctx,430,430);
-    const margin=38,size=354,cell=size/N;
-    kctx.strokeStyle='#aaa';
-    kctx.lineWidth=0.55;
-    for(let i=0;i<=N;i++){
-      const p=margin+i*cell;
-      kctx.beginPath();kctx.moveTo(p,margin);kctx.lineTo(p,margin+size);kctx.stroke();
-      kctx.beginPath();kctx.moveTo(margin,p);kctx.lineTo(margin+size,p);kctx.stroke();
-    }
-
-    for(let row=0;row<N;row++){
-      for(let col=0;col<N;col++){
-        const cx=margin+(col+.5)*cell,cy=margin+(row+.5)*cell;
-        kctx.fillStyle='#c2c9d6';
-        kctx.beginPath();kctx.arc(cx,cy,1.4,0,Math.PI*2);kctx.fill();
-      }
-    }
-
-    const kyRow=N/2;
-    if(t>=adcStart){
-      const endCol=Math.min(N-1,Math.max(0,Math.floor(((Math.min(t,adcEnd)-adcStart)/(adcEnd-adcStart))*N)));
-      for(let col=0;col<=endCol;col++){
-        const cx=margin+(col+.5)*cell,cy=margin+(kyRow+.5)*cell;
-        kctx.fillStyle='#2b7a3d';
-        kctx.beginPath();kctx.arc(cx,cy,4,0,Math.PI*2);kctx.fill();
-      }
-    }
-
-    const kp=kAtTime();
-    if(kp){
-      const col=Math.min(N-1,Math.max(0,Math.round(kp.u*(N-1))));
-      const cx=margin+(col+.5)*cell,cy=margin+(kyRow+.5)*cell;
-      kctx.strokeStyle='#d93b4b';kctx.lineWidth=2;
-      kctx.beginPath();kctx.arc(cx,cy,7,0,Math.PI*2);kctx.stroke();
-      kposEl.textContent=`(${kp.kx}, 0)`;
     }else{
-      kposEl.textContent='(0, 0)';
+      kys.forEach(ky=>{
+        for(let kx=-half;kx<half;kx++)coords.push({kx,ky});
+      });
     }
-
-    kctx.fillStyle='#111';
-    kctx.font='14px -apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif';
-    kctx.fillText('(0,0)',margin+size/2-18,margin+size/2+18);
+    acquisition=coords;
+    index=Math.min(index,acquisition.length-1);
   }
 
-  function xFromTime(tt){ return 78 + (tt/total)*820; }
-
-  function drawSequence(){
-    clear(sctx,920,220);
-    const rows=[
-      {label:'RF',y:34},{label:'Gz',y:72},{label:'Gy',y:110},
-      {label:'Gx',y:148},{label:'ADC',y:188}
-    ];
-    sctx.font='14px -apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif';
-    sctx.strokeStyle='#bbb';sctx.lineWidth=1;
-    rows.forEach(r=>{
-      sctx.fillStyle='#111';sctx.fillText(r.label,12,r.y+4);
-      sctx.beginPath();sctx.moveTo(52,r.y);sctx.lineTo(902,r.y);sctx.stroke();
-    });
-
-    function rfPulse(center,amp,width){
-      const x0=xFromTime(center-width/2),x1=xFromTime(center+width/2);
-      sctx.strokeStyle='#111';sctx.lineWidth=2;sctx.beginPath();
-      for(let i=0;i<=80;i++){
-        const xx=x0+(x1-x0)*i/80;
-        const env=Math.exp(-Math.pow((i-40)/17,2));
-        const yy=34-amp*env*Math.sin(i*0.7);
-        i===0?sctx.moveTo(xx,yy):sctx.lineTo(xx,yy);
+  function drawPhase(){
+    const ctx=phaseCanvas.getContext('2d');clear(ctx);
+    const p=+pEl.value,q=+qEl.value;
+    const margin=24,size=392,n=64,cell=size/n;
+    for(let j=0;j<n;j++){
+      const y=(j+.5)/n-.5;
+      for(let i=0;i<n;i++){
+        const x=(i+.5)/n-.5;
+        const phi=2*Math.PI*(p*x+q*y);
+        ctx.fillStyle=phaseColor(phi);
+        ctx.fillRect(margin+i*cell,margin+j*cell,cell+0.5,cell+0.5);
       }
-      sctx.stroke();
     }
-    rfPulse(t90,16,10);
-    rfPulse(t180,24,12);
-
-    sctx.strokeStyle='#111';sctx.lineWidth=2;
-    // Gz slice gradients
-    [[t90-5,t90+5,16],[t180-6,t180+6,22]].forEach(([a,b,h])=>{
-      const xa=xFromTime(a),xb=xFromTime(b);
-      sctx.beginPath();sctx.moveTo(xa,72);sctx.lineTo(xa+5,72-h);sctx.lineTo(xb-5,72-h);sctx.lineTo(xb,72);sctx.stroke();
-    });
-
-    // Gx prephaser
-    let xa=xFromTime(78), xb=xFromTime(90);
-    sctx.beginPath();sctx.moveTo(xa,148);sctx.lineTo(xa+5,160);sctx.lineTo(xb-5,160);sctx.lineTo(xb,148);sctx.stroke();
-    // readout
-    xa=xFromTime(adcStart);xb=xFromTime(adcEnd);
-    sctx.beginPath();sctx.moveTo(xa,148);sctx.lineTo(xa+5,134);sctx.lineTo(xb-5,134);sctx.lineTo(xb,148);sctx.stroke();
-
-    // ADC
-    sctx.fillStyle='rgba(43,122,61,0.20)';
-    sctx.fillRect(xFromTime(adcStart),176,xFromTime(adcEnd)-xFromTime(adcStart),24);
-
-    // echo envelope
-    sctx.strokeStyle='#d93b4b';sctx.lineWidth=2;sctx.beginPath();
-    for(let tt=adcStart;tt<=adcEnd;tt+=0.5){
-      const env=Math.exp(-Math.pow((tt-echo)/7,2));
-      const yy=188-18*env*Math.sin((tt-adcStart)*2.2);
-      const xx=xFromTime(tt);
-      tt===adcStart?sctx.moveTo(xx,yy):sctx.lineTo(xx,yy);
-    }
-    sctx.stroke();
-
-    // labels
-    sctx.fillStyle='#555';sctx.font='12px -apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif';
-    sctx.fillText('90°',xFromTime(t90)-10,16);
-    sctx.fillText('180°',xFromTime(t180)-14,16);
-    sctx.fillText('Echo',xFromTime(echo)-14,168);
-
-    // moving cursor
-    const xc=xFromTime(t);
-    sctx.strokeStyle='#d93b4b';sctx.lineWidth=2;
-    sctx.beginPath();sctx.moveTo(xc,8);sctx.lineTo(xc,208);sctx.stroke();
+    ctx.strokeStyle='#111';ctx.lineWidth=1;ctx.strokeRect(margin,margin,size,size);
+    ctx.fillStyle='rgba(255,255,255,.85)';ctx.fillRect(28,30,155,30);
+    ctx.fillStyle='#111';ctx.font='15px sans-serif';
+    ctx.fillText(`φ=2π(${p}x+${q}y)`,36,50);
   }
 
-  function stageInfo(){
-    if(t<t90) return ['待機','90°パルス前。磁化はz方向にあり、横断面にはまだ信号がありません。'];
-    if(t<t90+5) return ['90° RF','90°パルスにより磁化を横断面へ倒します。直後はスピンの位相が揃っています。'];
-    if(t<t180) return ['位相分散','局所磁場差により、スピンが異なる速さで回転して位相が分散します。'];
-    if(t<t180+5) return ['180° RF','180°パルスで各スピンの位相関係を反転します。速いスピンと遅いスピンの前後関係が入れ替わります。'];
-    if(t<adcStart) return ['再収束','180°パルス後、位相差が徐々に縮まり、Echoに向けて再収束します。'];
-    if(t<=adcEnd) return ['信号収集','GxをかけながらADCを開き、k空間中央行を左から右へ読み出します。Echo中心がk空間中心に対応します。'];
-    return ['終了','中央の1行を取得しました。次のTRでは別のGyを加えて、別のky行を取得します。'];
+  function drawK(){
+    const ctx=kCanvas.getContext('2d');clear(ctx);
+    const margin=38,size=364,cell=size/N,half=N/2;
+    ctx.strokeStyle='#aaa';ctx.lineWidth=.7;
+    for(let i=0;i<=N;i++){
+      const z=margin+i*cell;
+      ctx.beginPath();ctx.moveTo(z,margin);ctx.lineTo(z,margin+size);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(margin,z);ctx.lineTo(margin+size,z);ctx.stroke();
+    }
+    const acquired=new Set(acquisition.slice(0,index).map(v=>`${v.kx},${v.ky}`));
+    for(let ky=-half;ky<half;ky++)for(let kx=-half;kx<half;kx++){
+      const cx=margin+(kx+half+.5)*cell,cy=margin+(half-ky-.5)*cell;
+      ctx.fillStyle=acquired.has(`${kx},${ky}`)?'#243d7a':'#c0c8d7';
+      ctx.beginPath();ctx.arc(cx,cy,acquired.has(`${kx},${ky}`)?3.4:1.6,0,Math.PI*2);ctx.fill();
+    }
+    const cur=acquisition[Math.min(index,acquisition.length-1)];
+    if(cur){
+      const cx=margin+(cur.kx+half+.5)*cell,cy=margin+(half-cur.ky-.5)*cell;
+      ctx.strokeStyle='#d93b4b';ctx.lineWidth=2;
+      ctx.beginPath();ctx.arc(cx,cy,7,0,Math.PI*2);ctx.stroke();
+    }
+    const p=+pEl.value,q=+qEl.value;
+    const sx=margin+(p+half+.5)*cell,sy=margin+(half-q-.5)*cell;
+    ctx.strokeStyle='#111';ctx.lineWidth=2;ctx.strokeRect(sx-cell*.38,sy-cell*.38,cell*.76,cell*.76);
+  }
+
+  function objectAt(x,y){
+    const a=Math.exp(-((x+0.17)**2+(y+0.08)**2)/0.018);
+    const b=0.8*Math.exp(-((x-0.18)**2+(y-0.17)**2)/0.009);
+    const c=0.5*Math.exp(-((x-0.06)**2+(y+0.24)**2)/0.005);
+    return a+b+c;
+  }
+
+  function dftReconstruct(withOff){
+    const M=48;
+    const kdata=[];
+    const half=N/2;
+    const esp=+espEl.value/1000;
+    const df=+dfEl.value;
+    const orderMap=new Map(acquisition.map((v,i)=>[`${v.kx},${v.ky}`,i]));
+    for(let ky=-half;ky<half;ky++){
+      for(let kx=-half;kx<half;kx++){
+        let re=0,im=0;
+        for(let yy=0;yy<M;yy++){
+          const y=(yy+.5)/M-.5;
+          for(let xx=0;xx<M;xx++){
+            const x=(xx+.5)/M-.5;
+            const rho=objectAt(x,y);
+            const ph=-2*Math.PI*(kx*x+ky*y);
+            re+=rho*Math.cos(ph);im+=rho*Math.sin(ph);
+          }
+        }
+        if(withOff){
+          const ti=orderMap.get(`${kx},${ky}`) ?? 0;
+          const ph=2*Math.PI*df*ti*esp;
+          const nr=re*Math.cos(ph)-im*Math.sin(ph);
+          const ni=re*Math.sin(ph)+im*Math.cos(ph);
+          re=nr;im=ni;
+        }
+        kdata.push({kx,ky,re,im});
+      }
+    }
+    const out=new Float32Array(M*M);
+    let vmax=0;
+    for(let yy=0;yy<M;yy++){
+      const y=(yy+.5)/M-.5;
+      for(let xx=0;xx<M;xx++){
+        const x=(xx+.5)/M-.5;
+        let re=0,im=0;
+        for(const k of kdata){
+          const ph=2*Math.PI*(k.kx*x+k.ky*y);
+          re+=k.re*Math.cos(ph)-k.im*Math.sin(ph);
+          im+=k.re*Math.sin(ph)+k.im*Math.cos(ph);
+        }
+        const v=Math.hypot(re,im);
+        out[yy*M+xx]=v;if(v>vmax)vmax=v;
+      }
+    }
+    return {out,M,vmax};
+  }
+
+  function drawRecon(canvas,withOff){
+    const ctx=canvas.getContext('2d');clear(ctx);
+    const {out,M,vmax}=dftReconstruct(withOff);
+    const img=ctx.createImageData(M,M);
+    for(let i=0;i<out.length;i++){
+      const v=Math.max(0,Math.min(255,255*Math.pow(out[i]/vmax,.55)));
+      img.data[i*4]=v;img.data[i*4+1]=v;img.data[i*4+2]=v;img.data[i*4+3]=255;
+    }
+    const tmp=document.createElement('canvas');tmp.width=M;tmp.height=M;
+    tmp.getContext('2d').putImageData(img,0,0);
+    ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(tmp,24,24,392,392);
+    ctx.strokeStyle='#111';ctx.strokeRect(24,24,392,392);
+  }
+
+  function currentTimeMs(){
+    return index*(+espEl.value);
   }
 
   function render(){
-    drawReal();drawKspace();drawSequence();
-    timeEl.textContent=`${Math.round(t)} ms`;
-    const [stage,desc]=stageInfo();
-    stageEl.textContent=stage;
-    explainEl.textContent=desc;
-    mxyEl.textContent=`${Math.round(transverseAmplitude()*100)}%`;
+    generateOrder();
+    drawPhase();drawK();drawRecon(idealCanvas,false);drawRecon(offCanvas,true);
+    const p=+pEl.value,q=+qEl.value;
+    pqEl.textContent=`(${p}, ${q})`;pxEl.textContent=Math.abs(p);qyEl.textContent=Math.abs(q);
+    timeEl.textContent=`${currentTimeMs()} ms`;
+    explainEl.textContent=`(${p},${q})は、FOV内でx方向に${Math.abs(p)}周期、y方向に${Math.abs(q)}周期の位相変化を持つ基底です。取得順が変わると各k点の取得時刻が変わり、Δfによる追加位相の並び方も変わります。`;
   }
 
-  function stop(){
-    if(timer){clearInterval(timer);timer=null}
-    playBtn.textContent='再生';
-  }
-
-  function play(){
+  function stop(){if(timer){clearInterval(timer);timer=null}playBtn.textContent='再生'}
+  document.getElementById('step').onclick=()=>{stop();index=Math.min(index+1,N*N-1);render()};
+  playBtn.onclick=()=>{
     if(timer){stop();return}
     playBtn.textContent='停止';
-    timer=setInterval(()=>{
-      t+=1*speed;
-      if(t>=total){t=total;stop()}
-      render();
-    },35);
-  }
-
-  document.getElementById('play').onclick=play;
-  document.getElementById('back').onclick=()=>{stop();t=Math.max(0,t-10);render()};
-  document.getElementById('forward').onclick=()=>{stop();t=Math.min(total,t+10);render()};
-  document.getElementById('reset').onclick=()=>{stop();t=0;render()};
-  document.getElementById('speed').onclick=()=>{
-    speed = speed===1 ? 2 : speed===2 ? 0.5 : 1;
-    speedBtn.textContent=`速度 ×${speed}`;
+    timer=setInterval(()=>{index++;if(index>=N*N-1){index=N*N-1;stop()}render()},45);
   };
+  document.getElementById('reset').onclick=()=>{stop();index=0;render()};
+  [pEl,qEl,orderEl,dfEl,espEl].forEach(el=>el.addEventListener('input',()=>{stop();render()}));
 
-  render();
+  generateOrder();render();
 })();
 </script>
 </body>
