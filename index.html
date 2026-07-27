@@ -3,164 +3,228 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>実空間とk空間</title>
+<title>MRI k-space Simulator</title>
 <style>
-  :root{
-    --bg:#f5f5f5;
-    --panel:#ffffff;
-    --grid:#777;
-    --dot:#b5bfd1;
-    --navy:#263c7a;
-    --red:#d73a49;
-    --text:#111;
-  }
-  *{box-sizing:border-box}
-  body{
-    margin:0;
-    background:var(--bg);
-    color:var(--text);
-    font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif;
-  }
-  .app{
-    min-height:100vh;
-    padding:28px 18px 34px;
-  }
-  .stage{
-    max-width:1180px;
-    margin:0 auto;
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:54px;
-    align-items:start;
-  }
-  .section-title{
-    text-align:center;
-    font-size:30px;
-    font-weight:800;
-    margin:0 0 30px;
-  }
-  .panel{
-    background:var(--panel);
-    padding:6px 0 22px;
-    min-height:455px;
-  }
-  canvas{
-    display:block;
-    width:min(100%, 430px);
-    height:auto;
-    margin:0 auto;
-    touch-action:none;
-  }
-  .controls{
-    max-width:1180px;
-    margin:24px auto 0;
-    display:flex;
-    flex-wrap:wrap;
-    gap:10px;
-    justify-content:center;
-  }
-  button{
-    border:1px solid #aaa;
-    background:#fff;
-    color:#111;
-    border-radius:10px;
-    padding:11px 16px;
-    font-size:16px;
-    font-weight:700;
-  }
-  button:active{transform:translateY(1px)}
-  .readout{
-    width:100%;
-    text-align:center;
-    font-size:15px;
-    margin-top:4px;
-  }
-  @media (max-width:800px){
-    .app{padding:20px 10px 28px}
-    .stage{grid-template-columns:1fr;gap:30px}
-    .section-title{font-size:25px;margin-bottom:18px}
-    .panel{min-height:auto;padding-bottom:12px}
-  }
+:root{
+  --bg:#f4f4f4;
+  --card:#fff;
+  --line:#9a9a9a;
+  --text:#111;
+  --muted:#6d6d6d;
+  --blue:#243d7a;
+  --red:#d93b4b;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif}
+body{padding-bottom:env(safe-area-inset-bottom)}
+.app{max-width:980px;margin:0 auto;padding:14px 10px 28px}
+.topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:10px
+}
+.topbar h1{font-size:18px;margin:0;font-weight:800}
+.segment{
+  display:flex;border:1px solid #aaa;border-radius:10px;overflow:hidden;background:#fff
+}
+.segment button{
+  border:0;border-right:1px solid #aaa;background:#fff;padding:8px 13px;font-weight:700;font-size:14px
+}
+.segment button:last-child{border-right:0}
+.segment button.active{background:#111;color:#fff}
+.dual{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:10px;
+}
+.space h2{
+  text-align:center;
+  font-size:22px;
+  margin:8px 0 10px;
+}
+.card{
+  background:var(--card);
+  border:1px solid #e1e1e1;
+  border-radius:12px;
+  padding:8px;
+}
+canvas{
+  width:100%;
+  height:auto;
+  display:block;
+  touch-action:none;
+}
+.console{
+  margin-top:12px;
+  background:#fff;
+  border-radius:12px;
+  border:1px solid #ddd;
+  padding:10px;
+}
+.wave-title{
+  font-size:14px;
+  font-weight:800;
+  margin:2px 0 7px;
+}
+.wave{
+  width:100%;
+  height:180px;
+  border:1px solid #ddd;
+  background:#fff;
+}
+.status{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:8px;
+  margin-top:10px;
+}
+.status div{
+  border:1px solid #ddd;
+  border-radius:9px;
+  padding:8px;
+  text-align:center;
+  background:#fafafa;
+  font-size:13px;
+}
+.status b{display:block;font-size:16px;margin-top:2px}
+.controls{
+  margin-top:10px;
+  display:grid;
+  grid-template-columns:repeat(6,1fr);
+  gap:7px;
+}
+.controls button{
+  border:1px solid #aaa;background:#fff;border-radius:10px;
+  padding:10px 4px;font-size:14px;font-weight:800;
+}
+.controls button.primary{background:#111;color:#fff}
+.note{
+  font-size:12px;color:var(--muted);text-align:center;margin-top:8px
+}
+@media (max-width:560px){
+  .app{padding:8px 6px 22px}
+  .topbar h1{font-size:15px}
+  .segment button{padding:7px 10px;font-size:13px}
+  .dual{gap:6px}
+  .space h2{font-size:18px;margin:6px 0 6px}
+  .card{padding:4px;border-radius:8px}
+  .console{padding:8px}
+  .wave{height:150px}
+  .controls{grid-template-columns:repeat(3,1fr)}
+  .controls button{font-size:13px;padding:9px 3px}
+  .status{grid-template-columns:repeat(3,1fr);gap:5px}
+  .status div{font-size:11px;padding:6px 3px}
+  .status b{font-size:14px}
+}
 </style>
 </head>
 <body>
 <div class="app">
-  <main class="stage">
-    <section>
-      <h1 class="section-title">実空間</h1>
-      <div class="panel"><canvas id="real" width="430" height="430"></canvas></div>
+  <div class="topbar">
+    <h1>MRI k-space Simulator</h1>
+    <div class="segment">
+      <button id="n8">8×8</button>
+      <button id="n16" class="active">16×16</button>
+    </div>
+  </div>
+
+  <main class="dual">
+    <section class="space">
+      <h2>実空間</h2>
+      <div class="card"><canvas id="real" width="430" height="430"></canvas></div>
     </section>
-    <section>
-      <h1 class="section-title">k 空間</h1>
-      <div class="panel"><canvas id="kspace" width="430" height="430"></canvas></div>
+    <section class="space">
+      <h2>k 空間</h2>
+      <div class="card"><canvas id="kspace" width="430" height="430"></canvas></div>
     </section>
   </main>
 
-  <div class="controls">
-    <button id="left">左へ</button>
-    <button id="right">右へ</button>
-    <button id="up">上へ</button>
-    <button id="down">下へ</button>
-    <button id="rotate">回転</button>
-    <button id="reset">リセット</button>
-    <div class="readout" id="readout"></div>
-  </div>
+  <section class="console">
+    <div class="wave-title">パルスシーケンス</div>
+    <canvas id="wave" class="wave" width="900" height="180"></canvas>
+
+    <div class="status">
+      <div>位置<b id="pos">(2, 0)</b></div>
+      <div>位相<b id="phase">45°</b></div>
+      <div>k位置<b id="kpos">(0, 0)</b></div>
+    </div>
+
+    <div class="controls">
+      <button id="left">左へ</button>
+      <button id="right">右へ</button>
+      <button id="up">上へ</button>
+      <button id="down">下へ</button>
+      <button id="rotate">回転</button>
+      <button id="step" class="primary">1点取得</button>
+      <button id="play" class="primary">再生</button>
+      <button id="reset">リセット</button>
+      <button id="clear">k空間消去</button>
+    </div>
+    <div class="note">実空間をタップするとスピンを移動できます。</div>
+  </section>
 </div>
 
 <script>
 (() => {
   const real = document.getElementById('real');
   const kspace = document.getElementById('kspace');
+  const wave = document.getElementById('wave');
   const rctx = real.getContext('2d');
   const kctx = kspace.getContext('2d');
-  const readout = document.getElementById('readout');
+  const wctx = wave.getContext('2d');
 
-  const N = 8;
-  const margin = 45;
-  const size = 320;
-  const cell = size / N;
+  let N = 16;
+  let x = 2, y = 0;
+  let angle = Math.PI/4;
+  let acquired = new Set();
+  let orderIndex = 0;
+  let timer = null;
 
-  let x = 1;
-  let y = 1;
-  let angle = 0;
+  const posEl = document.getElementById('pos');
+  const phaseEl = document.getElementById('phase');
+  const kposEl = document.getElementById('kpos');
 
-  function clear(ctx){
-    ctx.clearRect(0,0,430,430);
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0,0,430,430);
+  function layout(){
+    const margin = 34;
+    const size = 362;
+    const cell = size/N;
+    return {margin,size,cell};
+  }
+
+  function clearCanvas(ctx,w,h){
+    ctx.clearRect(0,0,w,h);
+    ctx.fillStyle='#fff';
+    ctx.fillRect(0,0,w,h);
   }
 
   function drawGrid(ctx){
+    const {margin,size,cell}=layout();
     ctx.save();
-    ctx.translate(margin, margin);
-    ctx.strokeStyle = '#777';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle='#8e8e8e';
+    ctx.lineWidth=N===16?0.75:1;
     for(let i=0;i<=N;i++){
-      const p=i*cell;
-      ctx.beginPath();ctx.moveTo(p,0);ctx.lineTo(p,size);ctx.stroke();
-      ctx.beginPath();ctx.moveTo(0,p);ctx.lineTo(size,p);ctx.stroke();
+      const p=margin+i*cell;
+      ctx.beginPath();ctx.moveTo(p,margin);ctx.lineTo(p,margin+size);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(margin,p);ctx.lineTo(margin+size,p);ctx.stroke();
     }
     ctx.restore();
   }
 
-  function gridToCanvas(gx, gy){
-    const cx = margin + size/2 + gx*cell;
-    const cy = margin + size/2 - gy*cell;
-    return [cx,cy];
+  function gridToCanvas(gx,gy){
+    const {margin,size,cell}=layout();
+    return [margin+size/2+gx*cell, margin+size/2-gy*cell];
   }
 
-  function drawArrow(ctx, cx, cy, a){
-    const len=28;
-    const ex=cx+len*Math.cos(a);
-    const ey=cy-len*Math.sin(a);
+  function drawArrow(ctx,cx,cy,a){
+    const len = N===16 ? 22 : 30;
+    const ex=cx+len*Math.cos(a), ey=cy-len*Math.sin(a);
     ctx.save();
-    ctx.strokeStyle='#263c7a';
-    ctx.fillStyle='#263c7a';
-    ctx.lineWidth=7;
+    ctx.strokeStyle='#243d7a';
+    ctx.fillStyle='#243d7a';
+    ctx.lineWidth=N===16?5:7;
     ctx.lineCap='round';
     ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(ex,ey);ctx.stroke();
 
-    const head=10;
+    const head=N===16?7:10;
     const phi=Math.atan2(ey-cy,ex-cx);
     ctx.beginPath();
     ctx.moveTo(ex,ey);
@@ -168,68 +232,187 @@
     ctx.lineTo(ex-head*Math.cos(phi+Math.PI/6),ey-head*Math.sin(phi+Math.PI/6));
     ctx.closePath();ctx.fill();
 
-    ctx.fillStyle='#d73a49';
-    ctx.beginPath();ctx.arc(cx,cy,5.5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='#d93b4b';
+    ctx.beginPath();ctx.arc(cx,cy,N===16?4.5:6,0,Math.PI*2);ctx.fill();
     ctx.restore();
   }
 
   function drawReal(){
-    clear(rctx);
+    clearCanvas(rctx,430,430);
     drawGrid(rctx);
     const [cx,cy]=gridToCanvas(x,y);
     drawArrow(rctx,cx,cy,angle);
 
+    const {margin,size}=layout();
     rctx.fillStyle='#111';
-    rctx.font='16px -apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif';
-    rctx.fillText('(0, 0)', margin+size/2-34, margin+size/2+28);
-    rctx.fillText(`(${x}, ${y})`, cx+12, cy+7);
+    rctx.font=(N===16?'13px':'16px')+' -apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif';
+    rctx.fillText('(0, 0)',margin+size/2-28,margin+size/2+23);
+    rctx.fillText(`(${x}, ${y})`,cx+8,cy+5);
+  }
+
+  function currentK(){
+    if(orderIndex>=N*N) return null;
+    const row=Math.floor(orderIndex/N);
+    const col=orderIndex%N;
+    const ky=row-Math.floor(N/2);
+    const kx=(row%2===0 ? col : N-1-col)-Math.floor(N/2);
+    return {kx,ky,row,col};
   }
 
   function drawKspace(){
-    clear(kctx);
+    clearCanvas(kctx,430,430);
     drawGrid(kctx);
+    const {margin,size,cell}=layout();
 
-    kctx.fillStyle='#b5bfd1';
-    for(let iy=0;iy<N;iy++){
-      for(let ix=0;ix<N;ix++){
-        const cx=margin+(ix+.5)*cell;
-        const cy=margin+(iy+.5)*cell;
+    for(let row=0;row<N;row++){
+      for(let col=0;col<N;col++){
+        const key=`${row},${col}`;
+        const cx=margin+(col+.5)*cell;
+        const cy=margin+(row+.5)*cell;
         kctx.beginPath();
-        kctx.arc(cx,cy,2.8,0,Math.PI*2);
+        kctx.fillStyle=acquired.has(key)?'#243d7a':'#b7c0d1';
+        kctx.arc(cx,cy,N===16?1.8:3,0,Math.PI*2);
         kctx.fill();
       }
     }
 
+    const cur=currentK();
+    if(cur){
+      const cx=margin+(cur.col+.5)*cell;
+      const cy=margin+(cur.row+.5)*cell;
+      kctx.strokeStyle='#d93b4b';
+      kctx.lineWidth=2;
+      kctx.beginPath();kctx.arc(cx,cy,N===16?5:7,0,Math.PI*2);kctx.stroke();
+      kposEl.textContent=`(${cur.kx}, ${cur.ky})`;
+    }else{
+      kposEl.textContent='完了';
+    }
+
     kctx.fillStyle='#111';
-    kctx.font='18px -apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif';
-    kctx.fillText('(0,0)', margin+size/2-21, margin+size/2+18);
+    kctx.font=(N===16?'13px':'17px')+' -apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif';
+    kctx.fillText('(0,0)',margin+size/2-20,margin+size/2+17);
+  }
+
+  function drawWave(){
+    clearCanvas(wctx,900,180);
+    const rows=[
+      {label:'RF',y:28},
+      {label:'Gz',y:62},
+      {label:'Gy',y:96},
+      {label:'Gx',y:130},
+      {label:'ADC',y:164}
+    ];
+    wctx.font='14px -apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif';
+    wctx.strokeStyle='#b5b5b5';
+    wctx.lineWidth=1;
+    rows.forEach(r=>{
+      wctx.fillStyle='#111'; wctx.fillText(r.label,8,r.y+4);
+      wctx.beginPath();wctx.moveTo(48,r.y);wctx.lineTo(888,r.y);wctx.stroke();
+    });
+
+    // RF pulse
+    wctx.strokeStyle='#111'; wctx.lineWidth=2;
+    wctx.beginPath();
+    for(let i=0;i<=80;i++){
+      const xx=95+i*1.2;
+      const env=Math.exp(-Math.pow((i-40)/18,2));
+      const yy=28-12*env*Math.sin(i*0.65);
+      i===0?wctx.moveTo(xx,yy):wctx.lineTo(xx,yy);
+    }
+    wctx.stroke();
+
+    // Gz slice select
+    wctx.beginPath();
+    wctx.moveTo(90,62);wctx.lineTo(105,48);wctx.lineTo(185,48);wctx.lineTo(200,62);
+    wctx.lineTo(215,72);wctx.lineTo(250,72);wctx.lineTo(265,62);
+    wctx.stroke();
+
+    // Gy blips
+    for(let i=0;i<8;i++){
+      const x0=310+i*65;
+      wctx.beginPath();
+      wctx.moveTo(x0,96);wctx.lineTo(x0+7,86);wctx.lineTo(x0+16,96);
+      wctx.stroke();
+    }
+
+    // Gx oscillating EPI readout
+    wctx.beginPath();
+    wctx.moveTo(285,130);
+    for(let i=0;i<9;i++){
+      const x0=300+i*65;
+      const top=i%2===0?115:145;
+      wctx.lineTo(x0,130);wctx.lineTo(x0+8,top);wctx.lineTo(x0+55,top);wctx.lineTo(x0+65,130);
+    }
+    wctx.stroke();
+
+    // ADC windows
+    wctx.fillStyle='rgba(0,0,0,0.16)';
+    for(let i=0;i<8;i++){
+      const x0=308+i*65;
+      wctx.fillRect(x0,154,45,20);
+    }
   }
 
   function render(){
-    drawReal();
-    drawKspace();
-    readout.textContent=`位置: (${x}, ${y})　角度: ${Math.round(angle*180/Math.PI)}°`;
+    drawReal(); drawKspace(); drawWave();
+    posEl.textContent=`(${x}, ${y})`;
+    phaseEl.textContent=`${Math.round(angle*180/Math.PI)}°`;
   }
 
-  function clamp(v){ return Math.max(-3,Math.min(3,v)); }
+  function clamp(v){
+    const max=Math.floor(N/2)-1;
+    const min=-Math.floor(N/2);
+    return Math.max(min,Math.min(max,v));
+  }
+
+  function step(){
+    if(orderIndex>=N*N){
+      if(timer){clearInterval(timer);timer=null;document.getElementById('play').textContent='再生'}
+      return;
+    }
+    const cur=currentK();
+    acquired.add(`${cur.row},${cur.col}`);
+    orderIndex++;
+    render();
+  }
 
   document.getElementById('left').onclick=()=>{x=clamp(x-1);render()};
   document.getElementById('right').onclick=()=>{x=clamp(x+1);render()};
   document.getElementById('up').onclick=()=>{y=clamp(y+1);render()};
   document.getElementById('down').onclick=()=>{y=clamp(y-1);render()};
   document.getElementById('rotate').onclick=()=>{angle=(angle+Math.PI/8)%(Math.PI*2);render()};
-  document.getElementById('reset').onclick=()=>{x=1;y=1;angle=0;render()};
+  document.getElementById('step').onclick=step;
+  document.getElementById('play').onclick=()=>{
+    const b=document.getElementById('play');
+    if(timer){clearInterval(timer);timer=null;b.textContent='再生'}
+    else{timer=setInterval(step,120);b.textContent='停止'}
+  };
+  document.getElementById('reset').onclick=()=>{
+    x=2;y=0;angle=Math.PI/4;acquired.clear();orderIndex=0;
+    if(timer){clearInterval(timer);timer=null;document.getElementById('play').textContent='再生'}
+    render();
+  };
+  document.getElementById('clear').onclick=()=>{acquired.clear();orderIndex=0;render()};
 
-  function pointerToGrid(ev){
+  function setN(n){
+    N=n; acquired.clear(); orderIndex=0; x=Math.min(2,Math.floor(N/2)-1); y=0;
+    document.getElementById('n8').classList.toggle('active',N===8);
+    document.getElementById('n16').classList.toggle('active',N===16);
+    render();
+  }
+  document.getElementById('n8').onclick=()=>setN(8);
+  document.getElementById('n16').onclick=()=>setN(16);
+
+  real.addEventListener('pointerdown',ev=>{
     const rect=real.getBoundingClientRect();
     const sx=real.width/rect.width, sy=real.height/rect.height;
     const px=(ev.clientX-rect.left)*sx;
     const py=(ev.clientY-rect.top)*sy;
-    const gx=Math.round((px-(margin+size/2))/cell);
-    const gy=Math.round(((margin+size/2)-py)/cell);
-    x=clamp(gx); y=clamp(gy); render();
-  }
-  real.addEventListener('pointerdown', pointerToGrid);
+    const {margin,size,cell}=layout();
+    x=clamp(Math.round((px-(margin+size/2))/cell));
+    y=clamp(Math.round(((margin+size/2)-py)/cell));
+    render();
+  });
 
   render();
 })();
