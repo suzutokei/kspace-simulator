@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="theme-color" content="#111827">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<title>k-space Mobile</title>
+<style>
+:root{
+  --bg:#f3f4f6;--card:#fff;--text:#111827;--muted:#6b7280;
+  --line:#d1d5db;--blue:#2563eb;--dark:#111827;--soft:#e5e7eb;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans JP",sans-serif}
+body{padding-bottom:env(safe-area-inset-bottom)}
+header{
+  position:sticky;top:0;z-index:20;background:var(--dark);color:white;
+  padding:calc(10px + env(safe-area-inset-top)) 14px 10px;
+}
+header h1{font-size:17px;margin:0}
+header p{font-size:11px;margin:3px 0 0;color:#cbd5e1}
+main{padding:10px;max-width:760px;margin:auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:11px;margin-bottom:10px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+label{display:block;font-size:11px;font-weight:700;margin-bottom:4px}
+input,select,textarea,button{font:inherit}
+input,select,textarea{
+  width:100%;border:1px solid #cbd5e1;border-radius:10px;background:white;padding:10px;font-size:16px
+}
+textarea{
+  height:180px;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-size:13px;line-height:1.45
+}
+.controls{
+  position:sticky;bottom:0;z-index:15;background:rgba(243,244,246,.94);
+  backdrop-filter:blur(12px);padding:8px 0 calc(8px + env(safe-area-inset-bottom))
+}
+.buttons{display:grid;grid-template-columns:1.25fr 1fr 1fr 1fr;gap:6px}
+button{
+  border:0;border-radius:11px;padding:12px 7px;font-weight:700;font-size:14px;
+  background:var(--soft);color:var(--text);touch-action:manipulation
+}
+button.primary{background:var(--blue);color:white}
+.canvasBox{height:min(82vw,520px);min-height:320px}
+canvas{width:100%;height:100%;display:block;background:white;border-radius:10px}
+.stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px}
+.stat{border:1px solid var(--line);border-radius:10px;padding:7px;text-align:center}
+.stat small{display:block;color:var(--muted);font-size:10px}
+.stat b{font-size:14px}
+.wave{height:110px}
+.details summary{font-weight:700;font-size:13px;cursor:pointer}
+.help{font-size:12px;line-height:1.6;color:#4b5563;padding-top:8px}
+.error{font-size:12px;color:#b91c1c;white-space:pre-wrap;margin-top:6px}
+.badge{display:inline-block;background:#eef2ff;color:#3730a3;border-radius:999px;padding:3px 8px;font-size:10px;margin-left:5px}
+@media(min-width:700px){
+  .canvasBox{height:520px}
+  textarea{height:230px}
+}
+</style>
+</head>
+<body>
+<header>
+  <h1>k-space Mobile <span class="badge">touch</span></h1>
+  <p>任意のMOVE・READ・BLIP命令をスマホで再生</p>
+</header>
+
+<main>
+<section class="card">
+  <div class="grid2">
+    <div><label>プリセット</label>
+      <select id="preset">
+        <option value="epi">EPI：−kyから線形</option>
+        <option value="centric">0, −1, +1, −2, +2…</option>
+        <option value="spinwarp">Spin-warp</option>
+        <option value="blank">空欄</option>
+      </select>
+    </div>
+    <div><label>速度</label><input id="speed" type="range" min="20" max="780" value="610"></div>
+  </div>
+  <div class="grid2" style="margin-top:8px">
+    <div><label>kx 最大</label><input id="kxmax" inputmode="numeric" type="number" min="1" max="32" value="4"></div>
+    <div><label>ky 最大</label><input id="kymax" inputmode="numeric" type="number" min="1" max="32" value="4"></div>
+  </div>
+</section>
+
+<section class="card">
+  <div class="canvasBox"><canvas id="kspace"></canvas></div>
+  <div class="stats">
+    <div class="stat"><small>座標</small><b id="coord">(0, 0)</b></div>
+    <div class="stat"><small>収集点</small><b id="count">0</b></div>
+    <div class="stat"><small>命令</small><b id="command">—</b></div>
+  </div>
+</section>
+
+<section class="controls">
+  <div class="buttons">
+    <button class="primary" id="run">▶ 再生</button>
+    <button id="pause">Ⅱ 停止</button>
+    <button id="step">＋1</button>
+    <button id="reset">↺</button>
+  </div>
+</section>
+
+<section class="card">
+  <label>シーケンス命令</label>
+  <textarea id="script" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+  <div id="error" class="error"></div>
+</section>
+
+<section class="card">
+  <label>Gx</label><div class="wave"><canvas id="gx"></canvas></div>
+  <label style="margin-top:8px">Gy</label><div class="wave"><canvas id="gy"></canvas></div>
+</section>
+
+<section class="card details">
+<details>
+<summary>命令の書き方</summary>
+<div class="help">
+<code>MOVE kx ky</code>：信号収集せず移動<br>
+<code>READ kx ky samples</code>：現在位置から指定座標まで収集<br>
+<code>BLIP dx dy</code>：相対移動、収集なし<br>
+<code>WAIT n</code>：nステップ待機<br><br>
+例：<br>
+<code>MOVE -4 -4</code><br>
+<code>READ 4 -4 9</code><br>
+<code>BLIP 0 1</code>
+</div>
+</details>
+</section>
+</main>
+
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const kc=$('kspace'),gc=$('gx'),yc=$('gy');
+let events=[],idx=0,timer=null;
+let S={x:0,y:0,samples:[],path:[],gx:[],gy:[],cmd:'—'};
+
+function sizeCanvas(c){
+  const r=c.getBoundingClientRect(),d=Math.min(2,window.devicePixelRatio||1);
+  c.width=Math.max(1,Math.floor(r.width*d));
+  c.height=Math.max(1,Math.floor(r.height*d));
+  return d;
+}
+function makePreset(kind){
+  const kx=Number($('kxmax').value)||4,ky=Number($('kymax').value)||4;
+  if(kind==='blank') return '# 命令を入力\n';
+  if(kind==='spinwarp'){
+    let s='# Spin-warp\n';
+    for(let y=-ky;y<=ky;y++) s+=`MOVE ${-kx} ${y}\nREAD ${kx} ${y} ${2*kx+1}\nMOVE 0 0\n`;
+    return s;
+  }
+  const order=[];
+  if(kind==='epi'){for(let y=-ky;y<=ky;y++)order.push(y)}
+  else{order.push(0);for(let n=1;n<=ky;n++){order.push(-n);order.push(n)}}
+  let s=kind==='epi'?'# linear EPI\n':'# centric-like EPI\n';
+  s+=`MOVE ${-kx} ${order[0]}\n`;
+  order.forEach((y,i)=>{
+    const target=i%2===0?kx:-kx;
+    s+=`READ ${target} ${y} ${2*kx+1}\n`;
+    if(i<order.length-1)s+=`BLIP 0 ${order[i+1]-y}\n`;
+  });
+  return s;
+}
+function parseScript(){
+  const lines=$('script').value.split(/\r?\n/),rawEvents=[];
+  let x=0,y=0;
+  lines.forEach((line,i)=>{
+    const txt=line.replace(/#.*/,'').trim();
+    if(!txt)return;
+    const p=txt.split(/\s+/),cmd=p.shift().toUpperCase(),a=p.map(Number);
+    if(a.some(v=>!Number.isFinite(v)))throw Error(`${i+1}行目：数値エラー`);
+    if(cmd==='MOVE'&&a.length===2){
+      rawEvents.push({type:'move',x0:x,y0:y,x1:a[0],y1:a[1],label:txt});x=a[0];y=a[1];
+    }else if(cmd==='BLIP'&&a.length===2){
+      rawEvents.push({type:'move',x0:x,y0:y,x1:x+a[0],y1:y+a[1],label:txt});x+=a[0];y+=a[1];
+    }else if(cmd==='READ'&&a.length===3&&a[2]>=1){
+      rawEvents.push({type:'read',x0:x,y0:y,x1:a[0],y1:a[1],n:Math.round(a[2]),label:txt});x=a[0];y=a[1];
+    }else if(cmd==='WAIT'&&a.length===1&&a[0]>=1){
+      for(let j=0;j<Math.round(a[0]);j++)rawEvents.push({type:'wait',x0:x,y0:y,x1:x,y1:y,label:txt});
+    }else throw Error(`${i+1}行目：命令形式エラー`);
+  });
+  const out=[];
+  rawEvents.forEach(e=>{
+    const n=e.type==='read'?e.n:Math.max(1,Math.ceil(Math.max(Math.abs(e.x1-e.x0),Math.abs(e.y1-e.y0))*3));
+    for(let j=1;j<=n;j++){
+      const t=j/n;
+      out.push({...e,x:e.x0+(e.x1-e.x0)*t,y:e.y0+(e.y1-e.y0)*t});
+    }
+  });
+  return out;
+}
+function reset(){
+  if(timer){clearInterval(timer);timer=null}
+  idx=0;S={x:0,y:0,samples:[],path:[],gx:[],gy:[],cmd:'—'};
+  $('error').textContent='';
+  try{events=parseScript()}catch(e){events=[];$('error').textContent=e.message}
+  render();stats();
+}
+function step(){
+  if(idx>=events.length){if(timer){clearInterval(timer);timer=null}return}
+  const e=events[idx++],px=S.x,py=S.y;
+  S.x=e.x;S.y=e.y;S.cmd=e.label;
+  S.path.push({x0:px,y0:py,x1:S.x,y1:S.y,read:e.type==='read'});
+  if(e.type==='read')S.samples.push({x:S.x,y:S.y});
+  S.gx.push(S.x-px);S.gy.push(S.y-py);
+  stats();render();
+}
+function play(){
+  if(timer)return;
+  const delay=Math.max(18,820-Number($('speed').value));
+  timer=setInterval(step,delay);
+}
+function stop(){if(timer){clearInterval(timer);timer=null}}
+function stats(){
+  $('coord').textContent=`(${S.x.toFixed(1)}, ${S.y.toFixed(1)})`;
+  $('count').textContent=String(S.samples.length);
+  $('command').textContent=S.cmd.length>9?S.cmd.slice(0,9)+'…':S.cmd;
+}
+function render(){drawK();drawWave(gc,S.gx);drawWave(yc,S.gy)}
+function drawK(){
+  const d=sizeCanvas(kc),c=kc.getContext('2d'),w=kc.width,h=kc.height;
+  c.clearRect(0,0,w,h);
+  const kx=Math.max(1,Number($('kxmax').value)||4),ky=Math.max(1,Number($('kymax').value)||4);
+  const pad=28*d,sx=(w-2*pad)/(2*kx),sy=(h-2*pad)/(2*ky);
+  const X=x=>pad+(x+kx)*sx,Y=y=>h-pad-(y+ky)*sy;
+  c.strokeStyle='#e5e7eb';c.lineWidth=1*d;
+  for(let x=-kx;x<=kx;x++){c.beginPath();c.moveTo(X(x),Y(-ky));c.lineTo(X(x),Y(ky));c.stroke()}
+  for(let y=-ky;y<=ky;y++){c.beginPath();c.moveTo(X(-kx),Y(y));c.lineTo(X(kx),Y(y));c.stroke()}
+  c.strokeStyle='#9ca3af';c.lineWidth=1.5*d;
+  c.beginPath();c.moveTo(X(0),Y(-ky));c.lineTo(X(0),Y(ky));c.stroke();
+  c.beginPath();c.moveTo(X(-kx),Y(0));c.lineTo(X(kx),Y(0));c.stroke();
+  S.path.forEach(p=>{
+    c.strokeStyle=p.read?'#111827':'#9ca3af';c.lineWidth=(p.read?2.2:1.2)*d;
+    c.beginPath();c.moveTo(X(p.x0),Y(p.y0));c.lineTo(X(p.x1),Y(p.y1));c.stroke()
+  });
+  S.samples.forEach(p=>{c.fillStyle='#111827';c.beginPath();c.arc(X(p.x),Y(p.y),3*d,0,Math.PI*2);c.fill()});
+  c.fillStyle='#2563eb';c.beginPath();c.arc(X(S.x),Y(S.y),5.5*d,0,Math.PI*2);c.fill();
+  c.fillStyle='#374151';c.font=`${11*d}px sans-serif`;c.fillText('kx',w-23*d,Y(0)-5*d);c.fillText('ky',X(0)+5*d,14*d);
+}
+function drawWave(canvas,arr){
+  const d=sizeCanvas(canvas),c=canvas.getContext('2d'),w=canvas.width,h=canvas.height,mid=h/2,p=8*d;
+  c.clearRect(0,0,w,h);c.strokeStyle='#d1d5db';c.lineWidth=d;
+  c.beginPath();c.moveTo(p,mid);c.lineTo(w-p,mid);c.stroke();
+  if(!arr.length)return;
+  const m=Math.max(1,...arr.map(v=>Math.abs(v))),dx=(w-2*p)/Math.max(1,arr.length-1);
+  c.strokeStyle='#111827';c.lineWidth=1.5*d;c.beginPath();
+  arr.forEach((v,i)=>{const x=p+i*dx,y=mid-v/m*h*.36;i?c.lineTo(x,y):c.moveTo(x,y)});c.stroke()
+}
+function loadPreset(){$('script').value=makePreset($('preset').value);reset()}
+$('run').addEventListener('click',play);
+$('pause').addEventListener('click',stop);
+$('step').addEventListener('click',()=>{stop();step()});
+$('reset').addEventListener('click',reset);
+$('preset').addEventListener('change',loadPreset);
+$('kxmax').addEventListener('change',loadPreset);
+$('kymax').addEventListener('change',loadPreset);
+window.addEventListener('resize',render);
+document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});
+loadPreset();
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
