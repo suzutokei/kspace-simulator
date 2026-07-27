@@ -7,14 +7,15 @@
 <style>
 :root{
   --bg:#f5f5f5; --card:#fff; --text:#111; --muted:#666;
-  --blue:#24427d; --red:#d63849; --green:#196c35; --warn:#8a4b00;
+  --blue:#24427d; --red:#d63849; --orange:#d46a16;
+  --green:#196c35;
 }
 *{box-sizing:border-box}
 html,body{
   margin:0;background:var(--bg);color:var(--text);
   font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif
 }
-.app{max-width:1060px;margin:auto;padding:8px 6px 24px}
+.app{max-width:1080px;margin:auto;padding:8px 6px 24px}
 h1{font-size:18px;margin:3px 2px}
 header p{font-size:11px;color:var(--muted);margin:0 2px 8px}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:7px}
@@ -44,7 +45,7 @@ button.primary{background:#111;color:#fff}
 .explain{background:#fff7da;border:1px solid #eadb99}
 .testbox{background:#eef8f0;border:1px solid #b9d8bf;color:var(--green)}
 .testbox.error{background:#fff0ed;border-color:#e2b4aa;color:#8a1f11}
-@media(max-width:650px){
+@media(max-width:680px){
   h1{font-size:15px}
   .panel h2{font-size:15px}
   .row{grid-template-columns:repeat(2,1fr)}
@@ -58,17 +59,17 @@ button.primary{background:#111;color:#fff}
 <div class="app">
 <header>
   <h1>k-space Phase Vector Simulator</h1>
-  <p>座標系：8×8では左下 (−4,−4)、右上 (3,3)。0°のベクトルは →。</p>
+  <p>8×8では左下 (−4,−4)、右上 (3,3)。青＝真の位置、橙＝オフレゾナンス後の再構成位置。</p>
 </header>
 
 <main class="two">
   <section class="panel">
-    <h2>実空間</h2>
-    <div class="card"><canvas id="real" width="480" height="500"></canvas></div>
+    <h2>実空間・再構成位置</h2>
+    <div class="card"><canvas id="real" width="500" height="520"></canvas></div>
   </section>
   <section class="panel">
-    <h2>k空間</h2>
-    <div class="card"><canvas id="kspace" width="480" height="500"></canvas></div>
+    <h2>k空間の位相ベクトル</h2>
+    <div class="card"><canvas id="kspace" width="500" height="520"></canvas></div>
   </section>
 </main>
 
@@ -99,9 +100,8 @@ button.primary{background:#111;color:#fff}
   <div class="row">
     <label>ky収集順
       <select id="kyorder">
-        <option value="centerout">0,+1,−1,+2,−2…</option>
-        <option value="linear">−端 → ＋端</option>
-        <option value="centric">0,−1,+1,−2,+2…</option>
+        <option value="linear">−4 → −3 → −2 → −1 → 0 → 1 → 2 → 3</option>
+        <option value="centric">0 → −1 → 1 → −2 → 2 → −3 → 3 → −4</option>
       </select>
     </label>
 
@@ -112,9 +112,9 @@ button.primary{background:#111;color:#fff}
       </select>
     </label>
 
-    <label>オフレゾナンス位相ランプ
-      <input id="shift" type="range" min="-2" max="2" step="0.5" value="0">
-      <span class="value" id="shiftValue">0 cycle</span>
+    <label>オフレゾナンス Δf
+      <input id="df" type="range" min="-250" max="250" step="62.5" value="0">
+      <span class="value" id="dfValue">0 Hz</span>
     </label>
 
     <label>速度
@@ -125,24 +125,24 @@ button.primary{background:#111;color:#fff}
   <div class="row">
     <button id="play" class="primary">実行</button>
     <button id="step">1段階進める</button>
-    <button id="pause">一時停止</button>
     <button id="reset">リセット</button>
+    <button id="fill">全マス表示</button>
   </div>
 
   <div class="row">
-    <button id="fill">全マス表示</button>
-    <button id="togglePhase">オフレゾナンスなし表示</button>
+    <button id="togglePhase">理想位相を表示</button>
     <button id="clear">k空間消去</button>
     <button id="showCheck">検算詳細</button>
   </div>
 
   <div class="readout">
-    <div>実空間点<b id="xy">(1,2)</b></div>
-    <div>理想 kx周期<b id="cx">1</b></div>
-    <div>理想 ky周期<b id="cy">2</b></div>
-    <div>追加 kx周期<b id="shiftRead">0</b></div>
-    <div>合計 kx周期<b id="totalX">1</b></div>
+    <div>真の位置<b id="xy">(1,2)</b></div>
+    <div>理想周期<b id="cycles">kx 1 / ky 2</b></div>
     <div>Δf<b id="dfRead">0 Hz</b></div>
+    <div>readout時間<b id="readoutRead">8 ms</b></div>
+    <div>x位置ずれ<b id="shiftRead">0 pixel</b></div>
+    <div>y位置ずれ<b id="yShiftRead">0 pixel</b></div>
+    <div>見かけ位置<b id="apparentRead">(1,2)</b></div>
     <div>段階<b id="stage">待機</b></div>
   </div>
 
@@ -170,20 +170,22 @@ const pEl = document.getElementById("p");
 const qEl = document.getElementById("q");
 const kyorderEl = document.getElementById("kyorder");
 const bandwidthEl = document.getElementById("bandwidth");
-const shiftEl = document.getElementById("shift");
+const dfEl = document.getElementById("df");
 const speedEl = document.getElementById("speed");
 
-const shiftValueEl = document.getElementById("shiftValue");
+const dfValueEl = document.getElementById("dfValue");
 const xyEl = document.getElementById("xy");
-const cxEl = document.getElementById("cx");
-const cyEl = document.getElementById("cy");
-const shiftReadEl = document.getElementById("shiftRead");
-const totalXEl = document.getElementById("totalX");
+const cyclesEl = document.getElementById("cycles");
 const dfReadEl = document.getElementById("dfRead");
+const readoutReadEl = document.getElementById("readoutRead");
+const shiftReadEl = document.getElementById("shiftRead");
+const yShiftReadEl = document.getElementById("yShiftRead");
+const apparentReadEl = document.getElementById("apparentRead");
 const stageEl = document.getElementById("stage");
 const explainEl = document.getElementById("explain");
 const testboxEl = document.getElementById("testbox");
 const playBtn = document.getElementById("play");
+const togglePhaseBtn = document.getElementById("togglePhase");
 
 let N = 8;
 let sequence = [];
@@ -211,15 +213,12 @@ function centeredValues(){
 function kyValues(){
   if(kyorderEl.value === "linear") return centeredValues();
 
+  // 偶数マトリクスのcentric ordering：
+  // 0, -1, +1, -2, +2, ... , -N/2
   const out = [0];
   for(let d=1; out.length<N; d++){
-    if(kyorderEl.value === "centric"){
-      if(-d >= kMin()) out.push(-d);
-      if(out.length<N && d <= kMax()) out.push(d);
-    }else{
-      if(d <= kMax()) out.push(d);
-      if(out.length<N && -d >= kMin()) out.push(-d);
-    }
+    if(-d >= kMin()) out.push(-d);
+    if(out.length<N && d <= kMax()) out.push(d);
   }
   return out;
 }
@@ -228,33 +227,36 @@ function readoutMs(){
   return READOUT_MS[bandwidthEl.value];
 }
 
-function shiftCycles(){
-  return Number(shiftEl.value);
-}
-
 function offResonanceHz(){
-  return shiftCycles() * 1000 / readoutMs();
+  return Number(dfEl.value);
 }
 
-/*
-  位相規約（元アニメに合わせる）：
-    φideal = -2π (p kx + q ky) / N
+function offResonanceShiftPixels(){
+  // pixel bandwidth = 1 / total readout time
+  // shift[pixel] = Δf / BWpixel = Δf × Treadout
+  return offResonanceHz() * readoutMs() / 1000;
+}
 
-  Spin warpのオフレゾナンス：
-    soff = Δf × Treadout [cycle]
-    φoff = -2π soff kx / N
+function yShiftPixels(){
+  // 現在の収集法はSpin warp。
+  // オフレゾナンス位相はreadout方向(kx)だけに依存するため、
+  // 位相エンコード方向の位置ずれは0 pixel。
+  // EPI追加時には、ここを取得時刻配列から計算する。
+  return 0;
+}
 
-  よって：
-    φactual = -2π { (p + soff)kx + qky } / N
+function wrapCentered(value){
+  const min = kMin();
+  return ((value-min)%N+N)%N+min;
+}
 
-  0 radは右向き。正の数学的角度は反時計回りに描画する。
-*/
 function phaseIdealFor(p,q,kx,ky){
   return -2*Math.PI*(p*kx + q*ky)/N;
 }
 
 function phaseActualFor(p,q,kx,ky){
-  return -2*Math.PI*((p + shiftCycles())*kx + q*ky)/N;
+  const shift = offResonanceShiftPixels();
+  return -2*Math.PI*((p+shift)*kx + q*ky)/N;
 }
 
 function buildSequence(){
@@ -271,24 +273,24 @@ function buildSequence(){
   });
 
   sequence = out;
-  seqIndex = Math.min(seqIndex, sequence.length);
+  seqIndex = Math.min(seqIndex,sequence.length);
 }
 
 function clearCanvas(ctx){
-  ctx.clearRect(0,0,480,500);
+  ctx.clearRect(0,0,500,520);
   ctx.fillStyle = "#fff";
-  ctx.fillRect(0,0,480,500);
+  ctx.fillRect(0,0,500,520);
 }
 
 function drawGrid(ctx,top=42){
-  const left = 54;
+  const left = 64;
   const size = 384;
   const cell = size/N;
 
   ctx.strokeStyle = "#8f8f8f";
   ctx.lineWidth = 0.8;
 
-  for(let i=0; i<=N; i++){
+  for(let i=0;i<=N;i++){
     const z = left+i*cell;
 
     ctx.beginPath();
@@ -303,37 +305,6 @@ function drawGrid(ctx,top=42){
   }
 
   return {left,size,cell,top};
-}
-
-function drawArrow(ctx,cx,cy,angle,length,color,width=2){
-  const ex = cx + length*Math.cos(angle);
-  const ey = cy - length*Math.sin(angle);
-
-  ctx.strokeStyle = color;
-  ctx.fillStyle = color;
-  ctx.lineWidth = width;
-  ctx.lineCap = "round";
-
-  ctx.beginPath();
-  ctx.moveTo(cx,cy);
-  ctx.lineTo(ex,ey);
-  ctx.stroke();
-
-  const head = Math.min(5,length*0.36);
-  const phi = Math.atan2(ey-cy,ex-cx);
-
-  ctx.beginPath();
-  ctx.moveTo(ex,ey);
-  ctx.lineTo(
-    ex-head*Math.cos(phi-Math.PI/6),
-    ey-head*Math.sin(phi-Math.PI/6)
-  );
-  ctx.lineTo(
-    ex-head*Math.cos(phi+Math.PI/6),
-    ey-head*Math.sin(phi+Math.PI/6)
-  );
-  ctx.closePath();
-  ctx.fill();
 }
 
 function labelAxes(ctx,g){
@@ -355,7 +326,7 @@ function labelAxes(ctx,g){
   centeredValues().forEach(v => {
     const y = g.top+(kMax()-v+0.5)*g.cell;
     if(N===8 || v===kMin() || v===0 || v===kMax() || v%2===0){
-      ctx.fillText(String(v),g.left-6,y);
+      ctx.fillText(String(v),g.left-7,y);
     }
   });
 
@@ -363,33 +334,146 @@ function labelAxes(ctx,g){
   ctx.textBaseline = "alphabetic";
 }
 
+function drawArrow(ctx,cx,cy,angle,length,color,width=2){
+  const ex = cx+length*Math.cos(angle);
+  const ey = cy-length*Math.sin(angle);
+
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = width;
+  ctx.lineCap = "round";
+
+  ctx.beginPath();
+  ctx.moveTo(cx,cy);
+  ctx.lineTo(ex,ey);
+  ctx.stroke();
+
+  const head = Math.min(5,length*0.36);
+  const phi = Math.atan2(ey-cy,ex-cx);
+
+  ctx.beginPath();
+  ctx.moveTo(ex,ey);
+  ctx.lineTo(ex-head*Math.cos(phi-Math.PI/6),ey-head*Math.sin(phi-Math.PI/6));
+  ctx.lineTo(ex-head*Math.cos(phi+Math.PI/6),ey-head*Math.sin(phi+Math.PI/6));
+  ctx.closePath();
+  ctx.fill();
+}
+
+function reconstructionData(){
+  const p = clampCentered(pEl.value);
+  const q = clampCentered(qEl.value);
+  const values = [];
+  let maxMagnitude = 0;
+
+  centeredValues().forEach(y => {
+    centeredValues().forEach(x => {
+      let re = 0;
+      let im = 0;
+
+      centeredValues().forEach(ky => {
+        centeredValues().forEach(kx => {
+          const angle =
+            phaseActualFor(p,q,kx,ky)
+            +2*Math.PI*(kx*x+ky*y)/N;
+          re += Math.cos(angle);
+          im += Math.sin(angle);
+        });
+      });
+
+      const magnitude = Math.hypot(re,im)/(N*N);
+      maxMagnitude = Math.max(maxMagnitude,magnitude);
+      values.push({x,y,magnitude});
+    });
+  });
+
+  const peaks = values
+    .filter(v => Math.abs(v.magnitude-maxMagnitude)<1e-8)
+    .map(v => ({x:v.x,y:v.y}));
+
+  return {values,maxMagnitude,peaks};
+}
+
+function drawPeriodicApparentMarker(ctx,g,x,y){
+  const baseX = g.left+(x-kMin()+0.5)*g.cell;
+  const cy = g.top+(kMax()-y+0.5)*g.cell;
+  const xs = [baseX,baseX-g.size,baseX+g.size];
+
+  xs.forEach(cx => {
+    if(cx>=g.left-2 && cx<=g.left+g.size+2){
+      ctx.strokeStyle = "#d46a16";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(cx,cy,Math.max(7,g.cell*0.20),0,Math.PI*2);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(cx-Math.max(5,g.cell*0.13),cy);
+      ctx.lineTo(cx+Math.max(5,g.cell*0.13),cy);
+      ctx.moveTo(cx,cy-Math.max(5,g.cell*0.13));
+      ctx.lineTo(cx,cy+Math.max(5,g.cell*0.13));
+      ctx.stroke();
+    }
+  });
+}
+
 function drawReal(){
   clearCanvas(rctx);
   const g = drawGrid(rctx);
+  const recon = reconstructionData();
+
+  // 離散再構成像。整数pixelでなければ複数画素へ広がる。
+  recon.values.forEach(v => {
+    if(recon.maxMagnitude<=0) return;
+    const relative = v.magnitude/recon.maxMagnitude;
+    if(relative<0.015) return;
+
+    const x = g.left+(v.x-kMin())*g.cell;
+    const y = g.top+(kMax()-v.y)*g.cell;
+
+    rctx.fillStyle = `rgba(212,106,22,${0.08+0.52*relative})`;
+    rctx.fillRect(x+1,y+1,g.cell-2,g.cell-2);
+  });
+
   labelAxes(rctx,g);
 
   const p = clampCentered(pEl.value);
   const q = clampCentered(qEl.value);
+  const apparentX = wrapCentered(p+offResonanceShiftPixels());
+  const apparentY = wrapCentered(q+yShiftPixels());
 
-  const cx = g.left+(p-kMin()+0.5)*g.cell;
-  const cy = g.top+(kMax()-q+0.5)*g.cell;
+  // 真の位置
+  const trueCx = g.left+(p-kMin()+0.5)*g.cell;
+  const trueCy = g.top+(kMax()-q+0.5)*g.cell;
 
   rctx.fillStyle = "#24427d";
   rctx.beginPath();
-  rctx.arc(cx,cy,Math.max(5,g.cell*0.16),0,Math.PI*2);
+  rctx.arc(trueCx,trueCy,Math.max(5,g.cell*0.16),0,Math.PI*2);
   rctx.fill();
+  drawArrow(rctx,trueCx,trueCy,0,Math.max(12,g.cell*0.32),"#24427d",2.5);
 
-  drawArrow(rctx,cx,cy,0,Math.max(12,g.cell*0.32),"#d63849",3);
+  // 連続的な見かけ位置
+  drawPeriodicApparentMarker(rctx,g,apparentX,apparentY);
+
+  // 離散再構成の最大画素
+  recon.peaks.forEach(peak => {
+    const x = g.left+(peak.x-kMin())*g.cell;
+    const y = g.top+(kMax()-peak.y)*g.cell;
+    rctx.strokeStyle = "#d46a16";
+    rctx.lineWidth = 1.5;
+    rctx.strokeRect(x+2,y+2,g.cell-4,g.cell-4);
+  });
 
   rctx.fillStyle = "#111";
-  rctx.font = "13px sans-serif";
-  rctx.fillText(`(${p},${q})`,cx+8,cy-7);
-
   rctx.font = "11px sans-serif";
   rctx.fillText(`左下 (${kMin()},${kMin()})`,g.left,g.top+g.size+42);
   rctx.textAlign = "right";
   rctx.fillText(`右上 (${kMax()},${kMax()})`,g.left+g.size,g.top-10);
   rctx.textAlign = "left";
+
+  rctx.fillStyle = "#24427d";
+  rctx.fillText("● 真の位置",g.left,g.top+g.size+61);
+  rctx.fillStyle = "#d46a16";
+  rctx.fillText("○ 見かけの連続位置　橙色＝離散再構成像",g.left+95,g.top+g.size+61);
 }
 
 function drawKspace(){
@@ -404,13 +488,16 @@ function drawKspace(){
       const rec = vectors.get(`${kx},${ky}`);
 
       if(rec){
-        const angle = showIdeal ? rec.ideal : rec.actual;
         drawArrow(
-          kctx,cx,cy,angle,
+          kctx,
+          cx,
+          cy,
+          showIdeal ? rec.ideal : rec.actual,
           Math.max(7,g.cell*0.31),
           "#24427d",
           N===16 ? 1.35 : 2.1
         );
+
         kctx.fillStyle = "#24427d";
         kctx.beginPath();
         kctx.arc(cx,cy,N===16 ? 1.2 : 2.0,0,Math.PI*2);
@@ -424,7 +511,7 @@ function drawKspace(){
     });
   });
 
-  if(current.kx !== null && current.ky !== null){
+  if(current.kx!==null && current.ky!==null){
     const cx = g.left+(current.kx-kMin()+0.5)*g.cell;
     const cy = g.top+(kMax()-current.ky+0.5)*g.cell;
 
@@ -451,8 +538,8 @@ function storeVector(event){
   const q = clampCentered(qEl.value);
 
   vectors.set(`${event.kx},${event.ky}`,{
-    ideal: phaseIdealFor(p,q,event.kx,event.ky),
-    actual: phaseActualFor(p,q,event.kx,event.ky)
+    ideal:phaseIdealFor(p,q,event.kx,event.ky),
+    actual:phaseActualFor(p,q,event.kx,event.ky)
   });
 }
 
@@ -461,9 +548,7 @@ function fillAll(){
   vectors.clear();
 
   centeredValues().forEach(ky => {
-    centeredValues().forEach(kx => {
-      storeVector({kx,ky});
-    });
+    centeredValues().forEach(kx => storeVector({kx,ky}));
   });
 
   current = {stage:"全マス表示",kx:null,ky:null,adc:false};
@@ -471,30 +556,20 @@ function fillAll(){
   render();
 }
 
-function formatSigned(value){
-  if(Math.abs(value)<1e-12) return "0";
-  return value>0 ? `+${value}` : String(value);
+function formatNumber(value,digits=3){
+  const rounded = Number(value.toFixed(digits));
+  return Object.is(rounded,-0) ? "0" : String(rounded);
 }
 
-function configureShiftSlider(preserveDf=null){
-  const isDouble = bandwidthEl.value === "double";
-  const min = isDouble ? -2 : -4;
-  const max = isDouble ?  2 :  4;
-  const step = isDouble ? 0.5 : 1;
+function formatSigned(value,digits=3){
+  const text = formatNumber(value,digits);
+  if(text==="0") return "0";
+  return value>0 ? `+${text}` : text;
+}
 
-  shiftEl.min = String(min);
-  shiftEl.max = String(max);
-  shiftEl.step = String(step);
-
-  if(preserveDf !== null){
-    const raw = preserveDf*readoutMs()/1000;
-    const rounded = Math.round(raw/step)*step;
-    shiftEl.value = String(Math.max(min,Math.min(max,rounded)));
-  }else{
-    const raw = Number(shiftEl.value);
-    const rounded = Math.round(raw/step)*step;
-    shiftEl.value = String(Math.max(min,Math.min(max,rounded)));
-  }
+function peakText(peaks){
+  if(peaks.length===0) return "—";
+  return peaks.map(v => `(${v.x},${v.y})`).join(" / ");
 }
 
 function normalizeAngle(angle){
@@ -511,61 +586,96 @@ function angleClose(a,b,tol=1e-9){
 function runSelfTests(){
   const errors = [];
   const oldN = N;
-  const oldShift = shiftEl.value;
+  const oldDf = dfEl.value;
+  const oldBw = bandwidthEl.value;
 
   N = 8;
-  shiftEl.value = "0";
+  dfEl.value = "0";
+  bandwidthEl.value = "double";
 
-  // 全実空間位置について、k=(0,0)は必ず→。
   for(let p=-4;p<=3;p++){
     for(let q=-4;q<=3;q++){
       if(!angleClose(phaseIdealFor(p,q,0,0),0)){
-        errors.push(`中心ベクトル異常：(${p},${q})`);
+        errors.push(`k=(0,0)異常：(${p},${q})`);
       }
     }
   }
 
-  // (1,2), ky=0：← ↖ ↑ ↗ → ↘ ↓ ↙
   const expectedKxDeg = [180,135,90,45,0,-45,-90,-135];
   centeredValues().forEach((kx,i) => {
-    const expected = expectedKxDeg[i]*Math.PI/180;
-    if(!angleClose(phaseIdealFor(1,2,kx,0),expected)){
-      errors.push(`(1,2) kx=${kx} の向き異常`);
+    if(!angleClose(
+      phaseIdealFor(1,2,kx,0),
+      expectedKxDeg[i]*Math.PI/180
+    )){
+      errors.push(`(1,2) kx=${kx}の向き異常`);
     }
   });
 
-  // (1,2), kx=0：→ ↓ ← ↑ → ↓ ← ↑
   const expectedKyDeg = [0,-90,180,90,0,-90,180,90];
   centeredValues().forEach((ky,i) => {
-    const expected = expectedKyDeg[i]*Math.PI/180;
-    if(!angleClose(phaseIdealFor(1,2,0,ky),expected)){
-      errors.push(`(1,2) ky=${ky} の向き異常`);
+    if(!angleClose(
+      phaseIdealFor(1,2,0,ky),
+      expectedKyDeg[i]*Math.PI/180
+    )){
+      errors.push(`(1,2) ky=${ky}の向き異常`);
     }
   });
 
-  // オフレゾナンスを加えてもky隣接位相差は不変。
-  for(const s of [-2,-1,0,0.5,2]){
-    shiftEl.value = String(s);
-    for(const kx of centeredValues()){
-      for(let ky=-4;ky<3;ky++){
-        const dIdeal =
-          phaseIdealFor(1,2,kx,ky+1)-phaseIdealFor(1,2,kx,ky);
-        const dActual =
-          phaseActualFor(1,2,kx,ky+1)-phaseActualFor(1,2,kx,ky);
-        if(!angleClose(dIdeal,dActual)){
-          errors.push(`ky不変性異常：shift=${s}, kx=${kx}, ky=${ky}`);
+  // Δf=62.5 Hz：2倍BWでは0.5 pixel、基準BWでは1 pixel。
+  dfEl.value = "62.5";
+  bandwidthEl.value = "double";
+  if(Math.abs(offResonanceShiftPixels()-0.5)>1e-12){
+    errors.push("2倍BWの位置ずれ異常");
+  }
+
+  bandwidthEl.value = "standard";
+  if(Math.abs(offResonanceShiftPixels()-1)>1e-12){
+    errors.push("基準BWの位置ずれ異常");
+  }
+
+  // Spin warpではオフレゾナンス後もky隣接位相差は不変。
+  for(const df of [-250,-125,-62.5,0,62.5,125,250]){
+    dfEl.value = String(df);
+    for(const bw of ["double","standard"]){
+      bandwidthEl.value = bw;
+      for(const kx of centeredValues()){
+        for(let ky=-4;ky<3;ky++){
+          const idealDifference =
+            phaseIdealFor(1,2,kx,ky+1)-phaseIdealFor(1,2,kx,ky);
+          const actualDifference =
+            phaseActualFor(1,2,kx,ky+1)-phaseActualFor(1,2,kx,ky);
+
+          if(!angleClose(idealDifference,actualDifference)){
+            errors.push(`ky不変性異常：Δf=${df}, BW=${bw}`);
+          }
         }
       }
     }
   }
 
+  // Spin warpではy方向位置ずれは常に0。
+  for(const df of [-250,-125,-62.5,0,62.5,125,250]){
+    dfEl.value = String(df);
+    if(Math.abs(yShiftPixels())>1e-12){
+      errors.push(`Spin warp y位置ずれ異常：Δf=${df}`);
+    }
+  }
+
+  // FOV端でのwrap確認：p=3、+1 pixel → -4。
+  dfEl.value = "62.5";
+  bandwidthEl.value = "standard";
+  if(Math.abs(wrapCentered(3+offResonanceShiftPixels())-(-4))>1e-12){
+    errors.push("FOV wrap異常");
+  }
+
   N = oldN;
-  shiftEl.value = oldShift;
+  dfEl.value = oldDf;
+  bandwidthEl.value = oldBw;
 
   if(errors.length===0){
     testboxEl.className = "testbox";
     testboxEl.textContent =
-      "内部検算：OK｜座標範囲、k=(0,0)の→、(1,2)のkx 1周期・ky 2周期、Spin warpでのky周期不変を確認。";
+      "内部検算：OK｜座標、位相ベクトル、x位置ずれ、Spin warpでのy位置ずれ0、ky周期不変、FOV wrapを確認。";
   }else{
     testboxEl.className = "testbox error";
     testboxEl.textContent = `内部検算：NG｜${errors.slice(0,4).join("／")}`;
@@ -578,30 +688,42 @@ function render(){
 
   const p = clampCentered(pEl.value);
   const q = clampCentered(qEl.value);
-  const s = shiftCycles();
-  const total = p+s;
   const df = offResonanceHz();
+  const shift = offResonanceShiftPixels();
+  const yShift = yShiftPixels();
+  const apparentX = wrapCentered(p+shift);
+  const apparentY = wrapCentered(q+yShift);
+  const recon = reconstructionData();
 
+  dfValueEl.textContent = `${formatSigned(df,1)} Hz`;
   xyEl.textContent = `(${p},${q})`;
-  cxEl.textContent = String(p);
-  cyEl.textContent = String(q);
-  shiftReadEl.textContent = formatSigned(s);
-  totalXEl.textContent = formatSigned(total);
-  dfReadEl.textContent = `${formatSigned(Number(df.toFixed(1)))} Hz`;
+  cyclesEl.textContent = `kx ${p} / ky ${q}`;
+  dfReadEl.textContent = `${formatSigned(df,1)} Hz`;
+  readoutReadEl.textContent = `${readoutMs()} ms`;
+  shiftReadEl.textContent = `${formatSigned(shift,2)} pixel`;
+  yShiftReadEl.textContent = `${formatSigned(yShift,2)} pixel`;
+  apparentReadEl.textContent =
+    `(${formatNumber(apparentX,2)},${formatNumber(apparentY,2)})`;
   stageEl.textContent = current.stage;
-  shiftValueEl.textContent =
-    `${formatSigned(s)} cycle（＋はpと同方向）`;
 
   explainEl.textContent =
-    `位相は φ = −2π{(p+s)kx + qky}/N。`+
-    `実空間(${p},${q})の理想成分はkx方向${Math.abs(p)}周期、ky方向${Math.abs(q)}周期です。`+
-    `s=${formatSigned(s)}はSpin warpのオフレゾナンスによるkx位相ランプで、ky項を含まないためky方向の周期数は変わりません。`+
-    `現在の受信BWは${bandwidthEl.value==="double" ? "2倍" : "基準"}、readout時間${readoutMs()} msです。`;
+    `入力は収集法に依存しないオフレゾナンス Δf としました。`+
+    ` Spin warpでは x位置ずれ = Δf × readout時間 = ${formatSigned(shift,2)} pixel。`+
+    ` 現在の符号規約では正のΔfは＋x方向へ移動し、FOV外へ出ると反対側へwrapします。`+
+    ` 見かけの連続位置は(${formatNumber(apparentX,2)},${formatNumber(apparentY,2)})、離散再構成の最大画素は${peakText(recon.peaks)}です。`;
+
+  if(Math.abs(shift-Math.round(shift))>1e-9){
+    explainEl.textContent +=
+      " 位置ずれが非整数pixelなので、再構成信号は複数画素へ広がります。";
+  }
+
+  explainEl.textContent +=
+    ` ky項は変わらないため、Spin warpではy位置ずれは${formatSigned(yShift,2)} pixelで、ky方向のサイクル数も不変です。`;
 
   if(showCheckDetails){
     explainEl.textContent +=
-      ` 検算例：(1,2)のky=0行は、kx=−4→3で ←,↖,↑,↗,→,↘,↓,↙。`+
-      ` kx=0列は、ky=−4→3で →,↓,←,↑,→,↓,←,↑。`;
+      " 検算：(1,2)のky=0行はkx=−4→3で ←,↖,↑,↗,→,↘,↓,↙。"+
+      " kx=0列はky=−4→3で →,↓,←,↑,→,↓,←,↑。";
   }
 }
 
@@ -615,9 +737,7 @@ function advance(){
 
   current = sequence[seqIndex];
 
-  if(current.adc){
-    storeVector(current);
-  }
+  if(current.adc) storeVector(current);
 
   seqIndex++;
   render();
@@ -652,18 +772,8 @@ matrixEl.addEventListener("change",() => {
   reset();
 });
 
-[pEl,qEl,kyorderEl,shiftEl,speedEl].forEach(el => {
+[pEl,qEl,kyorderEl,bandwidthEl,dfEl,speedEl].forEach(el => {
   el.addEventListener("input",reset);
-});
-
-let previousBandwidth = bandwidthEl.value;
-bandwidthEl.addEventListener("change",() => {
-  const previousReadout = READOUT_MS[previousBandwidth];
-  const preservedDf = Number(shiftEl.value)*1000/previousReadout;
-
-  configureShiftSlider(preservedDf);
-  previousBandwidth = bandwidthEl.value;
-  reset();
 });
 
 playBtn.addEventListener("click",() => {
@@ -671,7 +781,8 @@ playBtn.addEventListener("click",() => {
     stop();
     return;
   }
-  playBtn.textContent = "停止";
+
+  playBtn.textContent = "一時停止";
   timer = setInterval(advance,Number(speedEl.value));
 });
 
@@ -680,14 +791,13 @@ document.getElementById("step").addEventListener("click",() => {
   advance();
 });
 
-document.getElementById("pause").addEventListener("click",stop);
 document.getElementById("reset").addEventListener("click",reset);
 document.getElementById("fill").addEventListener("click",fillAll);
 
-document.getElementById("togglePhase").addEventListener("click",() => {
+togglePhaseBtn.addEventListener("click",() => {
   showIdeal = !showIdeal;
-  document.getElementById("togglePhase").textContent =
-    showIdeal ? "オフレゾナンスあり表示" : "オフレゾナンスなし表示";
+  togglePhaseBtn.textContent =
+    showIdeal ? "実際位相を表示" : "理想位相を表示";
   render();
 });
 
@@ -710,7 +820,7 @@ real.addEventListener("pointerdown",event => {
   const px = (event.clientX-rect.left)*scale;
   const py = (event.clientY-rect.top)*scale;
 
-  const left = 54;
+  const left = 64;
   const top = 42;
   const size = 384;
   const cell = size/N;
@@ -725,7 +835,6 @@ real.addEventListener("pointerdown",event => {
   reset();
 });
 
-configureShiftSlider();
 buildSequence();
 runSelfTests();
 render();
