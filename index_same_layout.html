@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>実空間とk空間</title>
+<style>
+  :root{
+    --bg:#f5f5f5;
+    --panel:#ffffff;
+    --grid:#777;
+    --dot:#b5bfd1;
+    --navy:#263c7a;
+    --red:#d73a49;
+    --text:#111;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif;
+  }
+  .app{
+    min-height:100vh;
+    padding:28px 18px 34px;
+  }
+  .stage{
+    max-width:1180px;
+    margin:0 auto;
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:54px;
+    align-items:start;
+  }
+  .section-title{
+    text-align:center;
+    font-size:30px;
+    font-weight:800;
+    margin:0 0 30px;
+  }
+  .panel{
+    background:var(--panel);
+    padding:6px 0 22px;
+    min-height:455px;
+  }
+  canvas{
+    display:block;
+    width:min(100%, 430px);
+    height:auto;
+    margin:0 auto;
+    touch-action:none;
+  }
+  .controls{
+    max-width:1180px;
+    margin:24px auto 0;
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    justify-content:center;
+  }
+  button{
+    border:1px solid #aaa;
+    background:#fff;
+    color:#111;
+    border-radius:10px;
+    padding:11px 16px;
+    font-size:16px;
+    font-weight:700;
+  }
+  button:active{transform:translateY(1px)}
+  .readout{
+    width:100%;
+    text-align:center;
+    font-size:15px;
+    margin-top:4px;
+  }
+  @media (max-width:800px){
+    .app{padding:20px 10px 28px}
+    .stage{grid-template-columns:1fr;gap:30px}
+    .section-title{font-size:25px;margin-bottom:18px}
+    .panel{min-height:auto;padding-bottom:12px}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <main class="stage">
+    <section>
+      <h1 class="section-title">実空間</h1>
+      <div class="panel"><canvas id="real" width="430" height="430"></canvas></div>
+    </section>
+    <section>
+      <h1 class="section-title">k 空間</h1>
+      <div class="panel"><canvas id="kspace" width="430" height="430"></canvas></div>
+    </section>
+  </main>
+
+  <div class="controls">
+    <button id="left">左へ</button>
+    <button id="right">右へ</button>
+    <button id="up">上へ</button>
+    <button id="down">下へ</button>
+    <button id="rotate">回転</button>
+    <button id="reset">リセット</button>
+    <div class="readout" id="readout"></div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const real = document.getElementById('real');
+  const kspace = document.getElementById('kspace');
+  const rctx = real.getContext('2d');
+  const kctx = kspace.getContext('2d');
+  const readout = document.getElementById('readout');
+
+  const N = 8;
+  const margin = 45;
+  const size = 320;
+  const cell = size / N;
+
+  let x = 1;
+  let y = 1;
+  let angle = 0;
+
+  function clear(ctx){
+    ctx.clearRect(0,0,430,430);
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0,0,430,430);
+  }
+
+  function drawGrid(ctx){
+    ctx.save();
+    ctx.translate(margin, margin);
+    ctx.strokeStyle = '#777';
+    ctx.lineWidth = 1;
+    for(let i=0;i<=N;i++){
+      const p=i*cell;
+      ctx.beginPath();ctx.moveTo(p,0);ctx.lineTo(p,size);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(0,p);ctx.lineTo(size,p);ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function gridToCanvas(gx, gy){
+    const cx = margin + size/2 + gx*cell;
+    const cy = margin + size/2 - gy*cell;
+    return [cx,cy];
+  }
+
+  function drawArrow(ctx, cx, cy, a){
+    const len=28;
+    const ex=cx+len*Math.cos(a);
+    const ey=cy-len*Math.sin(a);
+    ctx.save();
+    ctx.strokeStyle='#263c7a';
+    ctx.fillStyle='#263c7a';
+    ctx.lineWidth=7;
+    ctx.lineCap='round';
+    ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(ex,ey);ctx.stroke();
+
+    const head=10;
+    const phi=Math.atan2(ey-cy,ex-cx);
+    ctx.beginPath();
+    ctx.moveTo(ex,ey);
+    ctx.lineTo(ex-head*Math.cos(phi-Math.PI/6),ey-head*Math.sin(phi-Math.PI/6));
+    ctx.lineTo(ex-head*Math.cos(phi+Math.PI/6),ey-head*Math.sin(phi+Math.PI/6));
+    ctx.closePath();ctx.fill();
+
+    ctx.fillStyle='#d73a49';
+    ctx.beginPath();ctx.arc(cx,cy,5.5,0,Math.PI*2);ctx.fill();
+    ctx.restore();
+  }
+
+  function drawReal(){
+    clear(rctx);
+    drawGrid(rctx);
+    const [cx,cy]=gridToCanvas(x,y);
+    drawArrow(rctx,cx,cy,angle);
+
+    rctx.fillStyle='#111';
+    rctx.font='16px -apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif';
+    rctx.fillText('(0, 0)', margin+size/2-34, margin+size/2+28);
+    rctx.fillText(`(${x}, ${y})`, cx+12, cy+7);
+  }
+
+  function drawKspace(){
+    clear(kctx);
+    drawGrid(kctx);
+
+    kctx.fillStyle='#b5bfd1';
+    for(let iy=0;iy<N;iy++){
+      for(let ix=0;ix<N;ix++){
+        const cx=margin+(ix+.5)*cell;
+        const cy=margin+(iy+.5)*cell;
+        kctx.beginPath();
+        kctx.arc(cx,cy,2.8,0,Math.PI*2);
+        kctx.fill();
+      }
+    }
+
+    kctx.fillStyle='#111';
+    kctx.font='18px -apple-system,BlinkMacSystemFont,"Helvetica Neue","Yu Gothic",Meiryo,sans-serif';
+    kctx.fillText('(0,0)', margin+size/2-21, margin+size/2+18);
+  }
+
+  function render(){
+    drawReal();
+    drawKspace();
+    readout.textContent=`位置: (${x}, ${y})　角度: ${Math.round(angle*180/Math.PI)}°`;
+  }
+
+  function clamp(v){ return Math.max(-3,Math.min(3,v)); }
+
+  document.getElementById('left').onclick=()=>{x=clamp(x-1);render()};
+  document.getElementById('right').onclick=()=>{x=clamp(x+1);render()};
+  document.getElementById('up').onclick=()=>{y=clamp(y+1);render()};
+  document.getElementById('down').onclick=()=>{y=clamp(y-1);render()};
+  document.getElementById('rotate').onclick=()=>{angle=(angle+Math.PI/8)%(Math.PI*2);render()};
+  document.getElementById('reset').onclick=()=>{x=1;y=1;angle=0;render()};
+
+  function pointerToGrid(ev){
+    const rect=real.getBoundingClientRect();
+    const sx=real.width/rect.width, sy=real.height/rect.height;
+    const px=(ev.clientX-rect.left)*sx;
+    const py=(ev.clientY-rect.top)*sy;
+    const gx=Math.round((px-(margin+size/2))/cell);
+    const gy=Math.round(((margin+size/2)-py)/cell);
+    x=clamp(gx); y=clamp(gy); render();
+  }
+  real.addEventListener('pointerdown', pointerToGrid);
+
+  render();
+})();
+</script>
+</body>
+</html>
