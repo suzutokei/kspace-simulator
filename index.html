@@ -64,10 +64,36 @@ input,select,button{
   background:#fff;font:inherit;padding:7px
 }
 .coord-stepper{
-  display:grid;
-  grid-template-columns:42px 1fr 42px;
-  gap:4px;
+  display:flex;
+  flex-wrap:nowrap;
   align-items:center;
+  gap:4px;
+  width:100%;
+  min-width:0;
+}
+.coord-stepper > button{
+  flex:0 0 42px;
+}
+.coord-stepper > input,
+.coord-stepper > .number-with-unit{
+  flex:1 1 auto;
+  min-width:0;
+}
+.number-with-unit{
+  position:relative;
+  display:flex;
+  align-items:center;
+  min-height:39px;
+}
+.number-with-unit input{
+  width:100%;
+  padding-right:30px;
+}
+.number-with-unit .unit{
+  position:absolute;
+  right:9px;
+  margin:0;
+  pointer-events:none;
 }
 .coord-stepper button{
   min-height:39px;
@@ -79,6 +105,11 @@ input,select,button{
   text-align:center;
   font-weight:800;
   -moz-appearance:textfield;
+}
+.coord-stepper .unit{
+  font-size:12px;
+  font-weight:700;
+  color:#444;
 }
 .coord-stepper input::-webkit-outer-spin-button,
 .coord-stepper input::-webkit-inner-spin-button{
@@ -139,19 +170,19 @@ button.primary{background:#111;color:#fff}
       </select>
     </label>
 
-    <label>実空間 x = p
+    <label>実空間 x座標
       <span class="coord-stepper">
-        <button id="pMinus" type="button" aria-label="x座標を1減らす">−</button>
+        <button id="pMinus" type="button" aria-label="x座標を左へ1移動">←</button>
         <input id="p" type="number" min="-4" max="3" value="1" readonly>
-        <button id="pPlus" type="button" aria-label="x座標を1増やす">＋</button>
+        <button id="pPlus" type="button" aria-label="x座標を右へ1移動">→</button>
       </span>
     </label>
 
-    <label>実空間 y = q
+    <label>実空間 y座標
       <span class="coord-stepper">
-        <button id="qMinus" type="button" aria-label="y座標を1減らす">−</button>
+        <button id="qMinus" type="button" aria-label="y座標を下へ1移動">↓</button>
         <input id="q" type="number" min="-4" max="3" value="2" readonly>
-        <button id="qPlus" type="button" aria-label="y座標を1増やす">＋</button>
+        <button id="qPlus" type="button" aria-label="y座標を上へ1移動">↑</button>
       </span>
     </label>
 
@@ -184,14 +215,23 @@ button.primary{background:#111;color:#fff}
       </span>
     </label>
 
-    <label id="dfSetting" class="df-setting disabled">Δf（ありの設定値）
-      <input id="df" type="range" min="-250" max="250" step="62.5" value="62.5" disabled>
-      <span class="value" id="dfValue">+62.5 Hz</span>
+    <label id="dfSetting" class="df-setting disabled">オフレゾナンスの程度
+      <span class="coord-stepper">
+        <button id="dfMinus" type="button" aria-label="オフレゾナンス周波数を下げる" disabled>−</button>
+        <span class="number-with-unit">
+          <input id="df" type="number" min="-250" max="250" step="62.5" value="62.5" readonly disabled>
+          <span class="unit">Hz</span>
+        </span>
+        <button id="dfPlus" type="button" aria-label="オフレゾナンス周波数を上げる" disabled>＋</button>
+      </span>
     </label>
 
     <label>再生速度
-      <input id="speed" type="range" min="1" max="10" step="1" value="6">
-      <span class="value" id="speedValue">標準</span>
+      <span class="coord-stepper">
+        <button id="speedMinus" type="button" aria-label="再生速度を下げる">−</button>
+        <input id="speed" type="number" min="1" max="10" step="1" value="6" readonly>
+        <button id="speedPlus" type="button" aria-label="再生速度を上げる">＋</button>
+      </span>
     </label>
   </div>
 
@@ -247,9 +287,10 @@ const kyorderEl = document.getElementById("kyorder");
 const bandwidthEl = document.getElementById("bandwidth");
 const dfEl = document.getElementById("df");
 const speedEl = document.getElementById("speed");
-
-const speedValueEl = document.getElementById("speedValue");
-const dfValueEl = document.getElementById("dfValue");
+const dfMinusEl = document.getElementById("dfMinus");
+const dfPlusEl = document.getElementById("dfPlus");
+const speedMinusEl = document.getElementById("speedMinus");
+const speedPlusEl = document.getElementById("speedPlus");
 const offresStatusEl = document.getElementById("offresStatus");
 const offresOffEl = document.getElementById("offresOff");
 const offresOnEl = document.getElementById("offresOn");
@@ -271,6 +312,8 @@ let sequence = [];
 let seqIndex = 0;
 let timer = null;
 let vectors = new Map();
+let previousVectorPhases = null;
+let phaseCompareTimer = null;
 let showCheckDetails = false;
 let offResonanceEnabled = false;
 let lastNonzeroDf = 62.5;
@@ -311,7 +354,25 @@ function offResonanceHz(){
   return offResonanceEnabled ? Number(dfEl.value) : 0;
 }
 
+function refreshStoredVectorPhases(){
+  const p = clampCentered(pEl.value);
+  const q = clampCentered(qEl.value);
+
+  vectors.forEach((rec,key) => {
+    const [kx,ky] = key.split(",").map(Number);
+    rec.ideal = phaseIdealFor(p,q,kx,ky);
+    rec.actual = phaseActualFor(p,q,kx,ky);
+  });
+}
+
 function setOffResonanceEnabled(enabled){
+  if(offResonanceEnabled === enabled) return;
+
+  // 取得済みベクトルを残したまま、切替前の向きを比較用に一時保存する。
+  previousVectorPhases = new Map(
+    [...vectors.entries()].map(([key,rec]) => [key,rec.actual])
+  );
+
   offResonanceEnabled = enabled;
   if(enabled){
     if(Math.abs(Number(dfEl.value)) < 1e-12){
@@ -320,7 +381,17 @@ function setOffResonanceEnabled(enabled){
   }else if(Math.abs(Number(dfEl.value)) > 1e-12){
     lastNonzeroDf = Number(dfEl.value);
   }
-  reset();
+
+  refreshStoredVectorPhases();
+  runSelfTests();
+  render();
+
+  if(phaseCompareTimer) clearTimeout(phaseCompareTimer);
+  phaseCompareTimer = setTimeout(() => {
+    previousVectorPhases = null;
+    phaseCompareTimer = null;
+    render();
+  },900);
 }
 
 function offResonanceShiftPixels(){
@@ -360,8 +431,6 @@ function changeCoordinate(inputEl,delta){
 }
 
 function updateCoordinateButtons(){
-  speedValueEl.textContent = `${playbackSpeedLabel()}（${speedEl.value}/10）`;
-
   const p = clampCentered(pEl.value);
   const q = clampCentered(qEl.value);
   pMinusEl.disabled = p <= kMin();
@@ -599,6 +668,19 @@ function drawKspace(){
       const rec = vectors.get(`${kx},${ky}`);
 
       if(rec){
+        const previousPhase = previousVectorPhases?.get(`${kx},${ky}`);
+        if(previousPhase !== undefined){
+          drawArrow(
+            kctx,
+            cx,
+            cy,
+            previousPhase,
+            Math.max(7,g.cell*0.31),
+            "#a9afb9",
+            N===16 ? 1.0 : 1.6
+          );
+        }
+
         drawArrow(
           kctx,
           cx,
@@ -634,6 +716,12 @@ function drawKspace(){
       g.cell*0.86,
       g.cell*0.86
     );
+  }
+
+  if(previousVectorPhases){
+    kctx.fillStyle = "#5f6670";
+    kctx.font = "bold 11px sans-serif";
+    kctx.fillText("灰色＝切替前　青色＝切替後",g.left,g.top+g.size+34);
   }
 
   kctx.fillStyle = "#111";
@@ -801,13 +889,6 @@ function playbackDelayMs(){
   return 220 - Number(speedEl.value)*20;
 }
 
-function playbackSpeedLabel(){
-  const speed = Number(speedEl.value);
-  if(speed <= 3) return "遅い";
-  if(speed <= 7) return "標準";
-  return "速い";
-}
-
 function render(){
   updateCoordinateButtons();
   drawReal();
@@ -831,9 +912,12 @@ function render(){
   offresOffEl.className = hasOffResonance ? "" : "active-off";
   offresOnEl.className = hasOffResonance ? "active-on" : "";
   dfEl.disabled = !hasOffResonance;
+  dfMinusEl.disabled = !hasOffResonance || Number(dfEl.value) <= Number(dfEl.min);
+  dfPlusEl.disabled = !hasOffResonance || Number(dfEl.value) >= Number(dfEl.max);
+  speedMinusEl.disabled = Number(speedEl.value) <= Number(speedEl.min);
+  speedPlusEl.disabled = Number(speedEl.value) >= Number(speedEl.max);
   dfSettingEl.classList.toggle("disabled",!hasOffResonance);
 
-  dfValueEl.textContent = `${formatSigned(Number(dfEl.value),1)} Hz`;
   xyEl.textContent = `(${p},${q})`;
   cyclesEl.textContent = `kx ${p} / ky ${q}`;
   dfReadEl.textContent = `${formatSigned(df,1)} Hz`;
@@ -891,6 +975,9 @@ function stop(){
 
 function reset(){
   stop();
+  if(phaseCompareTimer) clearTimeout(phaseCompareTimer);
+  phaseCompareTimer = null;
+  previousVectorPhases = null;
   vectors.clear();
   seqIndex = 0;
   current = {stage:"待機",kx:null,ky:null,adc:false};
@@ -914,19 +1001,43 @@ matrixEl.addEventListener("change",() => {
   el.addEventListener("input",reset);
 });
 
-speedEl.addEventListener("input",() => {
-  speedValueEl.textContent = `${playbackSpeedLabel()}（${speedEl.value}/10）`;
+function changePlaybackSpeed(delta){
+  const next = Math.max(Number(speedEl.min),Math.min(Number(speedEl.max),Number(speedEl.value)+delta));
+  if(next === Number(speedEl.value)) return;
+  speedEl.value = String(next);
   if(timer){
     clearInterval(timer);
     timer = setInterval(advance,playbackDelayMs());
   }
-});
+  render();
+}
 
-dfEl.addEventListener("input",() => {
-  const value = Number(dfEl.value);
-  if(Math.abs(value) > 1e-12) lastNonzeroDf = value;
-  reset();
-});
+function changeOffResonanceFrequency(delta){
+  if(!offResonanceEnabled) return;
+  const next = Math.max(Number(dfEl.min),Math.min(Number(dfEl.max),Number(dfEl.value)+delta));
+  if(Math.abs(next-Number(dfEl.value)) < 1e-12) return;
+
+  previousVectorPhases = new Map(
+    [...vectors.entries()].map(([key,rec]) => [key,rec.actual])
+  );
+  dfEl.value = String(next);
+  if(Math.abs(next) > 1e-12) lastNonzeroDf = next;
+  refreshStoredVectorPhases();
+  runSelfTests();
+  render();
+
+  if(phaseCompareTimer) clearTimeout(phaseCompareTimer);
+  phaseCompareTimer = setTimeout(() => {
+    previousVectorPhases = null;
+    phaseCompareTimer = null;
+    render();
+  },900);
+}
+
+speedMinusEl.addEventListener("click",() => changePlaybackSpeed(-1));
+speedPlusEl.addEventListener("click",() => changePlaybackSpeed(1));
+dfMinusEl.addEventListener("click",() => changeOffResonanceFrequency(-Number(dfEl.step)));
+dfPlusEl.addEventListener("click",() => changeOffResonanceFrequency(Number(dfEl.step)));
 
 offresOffEl.addEventListener("click",() => setOffResonanceEnabled(false));
 offresOnEl.addEventListener("click",() => setOffResonanceEnabled(true));
