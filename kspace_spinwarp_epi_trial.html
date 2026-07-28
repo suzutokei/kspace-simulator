@@ -206,6 +206,7 @@ button.primary{background:#111;color:#fff}
       <select id="bandwidth">
         <option value="double">2倍受信BW（readout 8 ms）</option>
         <option value="standard">基準受信BW（readout 16 ms）</option>
+        <option value="epi-high" hidden>EPI高受信BW（固定、readout 4 ms）</option>
       </select>
     </label>
 
@@ -269,7 +270,8 @@ button.primary{background:#111;color:#fff}
 
 const READOUT_MS = {
   double: 8,
-  standard: 16
+  standard: 16,
+  "epi-high": 4
 };
 
 const real = document.getElementById("real");
@@ -319,6 +321,7 @@ let phaseCompareTimer = null;
 let showCheckDetails = false;
 let offResonanceEnabled = false;
 let lastNonzeroDf = 125;
+let lastSpinBandwidth = "double";
 let current = {stage:"待機", kx:null, ky:null, adc:false};
 
 function kMin(){ return -N/2; }
@@ -349,7 +352,8 @@ function kyValues(){
 }
 
 function readoutMs(){
-  return READOUT_MS[bandwidthEl.value];
+  // EPIでは周波数エンコード方向の受信BWを高く固定する。
+  return isEpi() ? READOUT_MS["epi-high"] : READOUT_MS[bandwidthEl.value];
 }
 
 function isEpi(){
@@ -823,8 +827,11 @@ function runSelfTests(){
   }
 
   methodEl.value = "epi";
-  bandwidthEl.value = "double";
-  if(Math.abs(yShiftPixels() - 8*125*0.010)>1e-12){
+  bandwidthEl.value = "epi-high";
+  if(Math.abs(offResonanceShiftPixels()-0.5)>1e-12){
+    errors.push("EPI高受信BWのx位置ずれ異常");
+  }
+  if(Math.abs(yShiftPixels() - 8*125*0.006)>1e-12){
     errors.push("EPIのy位置ずれ異常");
   }
   const t00 = epiAcquisitionTimeSec(0,0)-epiReferenceTimeSec();
@@ -841,7 +848,7 @@ function runSelfTests(){
   if(errors.length===0){
     testboxEl.className = "testbox";
     testboxEl.textContent =
-      "内部検算：OK｜Spin warpのreadout方向ずれと、EPIのecho spacingによる位相方向ずれを確認。";
+      "内部検算：OK｜Spin warpのreadout方向ずれと、EPIの高受信BW・echo spacingによる位相方向ずれを確認。";
   }else{
     testboxEl.className = "testbox error";
     testboxEl.textContent = `内部検算：NG｜${errors.slice(0,4).join("／")}`;
@@ -882,14 +889,13 @@ function render(){
   speedPlusEl.disabled = Number(speedEl.value) >= Number(speedEl.max);
   dfSettingEl.classList.toggle("disabled",!hasOffResonance);
   kyorderEl.disabled = isEpi();
+  bandwidthEl.disabled = isEpi();
 
   xyEl.textContent = `(${p},${q})`;
   cyclesEl.textContent = `kx ${p} / ky ${q}`;
   dfReadEl.textContent = `${formatSigned(df,1)} Hz`;
   readoutReadEl.textContent = `${readoutMs()} ms`;
-  shiftReadEl.textContent = isEpi()
-    ? `±${formatNumber(Math.abs(shift),2)} pixel（奇偶行）`
-    : `${formatSigned(shift,2)} pixel`;
+  shiftReadEl.textContent = `${formatSigned(shift,2)} pixel`;
   yShiftReadEl.textContent = `${formatSigned(yShift,2)} pixel`;
   apparentReadEl.textContent = isEpi()
     ? `主像 ≈ (${p},${formatNumber(apparentY,2)})`
@@ -899,9 +905,10 @@ function render(){
   if(isEpi()){
     explainEl.textContent =
       `EPIでは、1回の励起後にGxを正負交互に切り替え、短いGy blipでkyを1行ずつ進めます。`+
-      ` echo spacingは${epiEchoSpacingMs()} msです。`+
-      ` オフレゾナンスにより、概算のy位置ずれは N × Δf × echo spacing = ${formatSigned(yShift,2)} pixel。`+
-      ` また、奇数行と偶数行ではreadout方向が逆なので、kx方向の位相傾斜も反転し、再構成像に奇偶行由来の分裂やghostが現れます。`+
+      ` 周波数方向の受信BWは高く固定し、readout時間は${readoutMs()} ms、echo spacingは${epiEchoSpacingMs()} msです。`+
+      ` そのためオフレゾナンスによるx位置ずれは${formatSigned(shift,2)} pixelと小さい一方、`+
+      ` y位置ずれは N × Δf × echo spacing = ${formatSigned(yShift,2)} pixelとなり、位相エンコード方向の歪みが目立ちます。`+
+      ` 左右交互のreadoutはk空間の蛇行軌跡を示しており、それ自体をx方向の大きな画像ずれとして扱いません。`+
       ` 離散再構成の最大画素は${peakText(recon.peaks)}です。`;
   }else{
     explainEl.textContent =
@@ -976,11 +983,13 @@ matrixEl.addEventListener("change",() => {
 
 methodEl.addEventListener("input",() => {
   kyorderEl.disabled = isEpi();
+  bandwidthEl.disabled = isEpi();
   refreshStoredVectorPhases();
   reset();
 });
 kyorderEl.addEventListener("input",reset);
 bandwidthEl.addEventListener("input",() => {
+  if(!isEpi()) lastSpinBandwidth = bandwidthEl.value;
   refreshStoredVectorPhases();
   runSelfTests();
   render();
