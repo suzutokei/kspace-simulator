@@ -219,7 +219,7 @@ button.primary{background:#111;color:#fff}
       <span class="coord-stepper">
         <button id="dfMinus" type="button" aria-label="オフレゾナンス周波数を下げる" disabled>−</button>
         <span class="number-with-unit">
-          <input id="df" type="number" min="-250" max="250" step="62.5" value="62.5" readonly disabled>
+          <input id="df" type="number" min="-250" max="250" step="125" value="125" readonly disabled>
           <span class="unit">Hz</span>
         </span>
         <button id="dfPlus" type="button" aria-label="オフレゾナンス周波数を上げる" disabled>＋</button>
@@ -316,7 +316,7 @@ let previousVectorPhases = null;
 let phaseCompareTimer = null;
 let showCheckDetails = false;
 let offResonanceEnabled = false;
-let lastNonzeroDf = 62.5;
+let lastNonzeroDf = 125;
 let current = {stage:"待機", kx:null, ky:null, adc:false};
 
 function kMin(){ return -N/2; }
@@ -368,11 +368,6 @@ function refreshStoredVectorPhases(){
 function setOffResonanceEnabled(enabled){
   if(offResonanceEnabled === enabled) return;
 
-  // 取得済みベクトルを残したまま、切替前の向きを比較用に一時保存する。
-  previousVectorPhases = new Map(
-    [...vectors.entries()].map(([key,rec]) => [key,rec.actual])
-  );
-
   offResonanceEnabled = enabled;
   if(enabled){
     if(Math.abs(Number(dfEl.value)) < 1e-12){
@@ -382,16 +377,10 @@ function setOffResonanceEnabled(enabled){
     lastNonzeroDf = Number(dfEl.value);
   }
 
+  // 取得済みベクトルは残し、現在の条件に合わせて向きだけ更新する。
   refreshStoredVectorPhases();
   runSelfTests();
   render();
-
-  if(phaseCompareTimer) clearTimeout(phaseCompareTimer);
-  phaseCompareTimer = setTimeout(() => {
-    previousVectorPhases = null;
-    phaseCompareTimer = null;
-    render();
-  },900);
 }
 
 function offResonanceShiftPixels(){
@@ -427,7 +416,10 @@ function changeCoordinate(inputEl,delta){
   const nextValue = Math.max(kMin(),Math.min(kMax(),currentValue+delta));
   if(nextValue === currentValue) return;
   inputEl.value = String(nextValue);
-  reset();
+  // 取得済みのk空間ベクトルは残し、座標変更後の位相へ即時更新する。
+  refreshStoredVectorPhases();
+  runSelfTests();
+  render();
 }
 
 function updateCoordinateButtons(){
@@ -629,7 +621,6 @@ function drawReal(){
   rctx.beginPath();
   rctx.arc(trueCx,trueCy,Math.max(5,g.cell*0.16),0,Math.PI*2);
   rctx.fill();
-  drawArrow(rctx,trueCx,trueCy,0,Math.max(12,g.cell*0.32),"#24427d",2.5);
 
   // 連続的な見かけ位置
   drawPeriodicApparentMarker(rctx,g,apparentX,apparentY);
@@ -668,19 +659,6 @@ function drawKspace(){
       const rec = vectors.get(`${kx},${ky}`);
 
       if(rec){
-        const previousPhase = previousVectorPhases?.get(`${kx},${ky}`);
-        if(previousPhase !== undefined){
-          drawArrow(
-            kctx,
-            cx,
-            cy,
-            previousPhase,
-            Math.max(7,g.cell*0.31),
-            "#a9afb9",
-            N===16 ? 1.0 : 1.6
-          );
-        }
-
         drawArrow(
           kctx,
           cx,
@@ -716,12 +694,6 @@ function drawKspace(){
       g.cell*0.86,
       g.cell*0.86
     );
-  }
-
-  if(previousVectorPhases){
-    kctx.fillStyle = "#5f6670";
-    kctx.font = "bold 11px sans-serif";
-    kctx.fillText("灰色＝切替前　青色＝切替後",g.left,g.top+g.size+34);
   }
 
   kctx.fillStyle = "#111";
@@ -822,20 +794,20 @@ function runSelfTests(){
     }
   });
 
-  // Δf=62.5 Hz：2倍BWでは0.5 pixel、基準BWでは1 pixel。
-  dfEl.value = "62.5";
+  // Δf=125 Hz：2倍BWでは1 pixel、基準BWでは2 pixel。
+  dfEl.value = "125";
   bandwidthEl.value = "double";
-  if(Math.abs(offResonanceShiftPixels()-0.5)>1e-12){
+  if(Math.abs(offResonanceShiftPixels()-1)>1e-12){
     errors.push("2倍BWの位置ずれ異常");
   }
 
   bandwidthEl.value = "standard";
-  if(Math.abs(offResonanceShiftPixels()-1)>1e-12){
+  if(Math.abs(offResonanceShiftPixels()-2)>1e-12){
     errors.push("基準BWの位置ずれ異常");
   }
 
   // Spin warpではオフレゾナンス後もky隣接位相差は不変。
-  for(const df of [-250,-125,-62.5,0,62.5,125,250]){
+  for(const df of [-250,-125,0,125,250]){
     dfEl.value = String(df);
     for(const bw of ["double","standard"]){
       bandwidthEl.value = bw;
@@ -855,17 +827,17 @@ function runSelfTests(){
   }
 
   // Spin warpではy方向位置ずれは常に0。
-  for(const df of [-250,-125,-62.5,0,62.5,125,250]){
+  for(const df of [-250,-125,0,125,250]){
     dfEl.value = String(df);
     if(Math.abs(yShiftPixels())>1e-12){
       errors.push(`Spin warp y位置ずれ異常：Δf=${df}`);
     }
   }
 
-  // FOV端でのwrap確認：p=3、+1 pixel → -4。
-  dfEl.value = "62.5";
+  // FOV端でのwrap確認：p=3、+2 pixel → -3。
+  dfEl.value = "125";
   bandwidthEl.value = "standard";
-  if(Math.abs(wrapCentered(3+offResonanceShiftPixels())-(-4))>1e-12){
+  if(Math.abs(wrapCentered(3+offResonanceShiftPixels())-(-3))>1e-12){
     errors.push("FOV wrap異常");
   }
 
@@ -997,8 +969,11 @@ matrixEl.addEventListener("change",() => {
   reset();
 });
 
-[kyorderEl,bandwidthEl].forEach(el => {
-  el.addEventListener("input",reset);
+kyorderEl.addEventListener("input",reset);
+bandwidthEl.addEventListener("input",() => {
+  refreshStoredVectorPhases();
+  runSelfTests();
+  render();
 });
 
 function changePlaybackSpeed(delta){
@@ -1017,21 +992,11 @@ function changeOffResonanceFrequency(delta){
   const next = Math.max(Number(dfEl.min),Math.min(Number(dfEl.max),Number(dfEl.value)+delta));
   if(Math.abs(next-Number(dfEl.value)) < 1e-12) return;
 
-  previousVectorPhases = new Map(
-    [...vectors.entries()].map(([key,rec]) => [key,rec.actual])
-  );
   dfEl.value = String(next);
   if(Math.abs(next) > 1e-12) lastNonzeroDf = next;
   refreshStoredVectorPhases();
   runSelfTests();
   render();
-
-  if(phaseCompareTimer) clearTimeout(phaseCompareTimer);
-  phaseCompareTimer = setTimeout(() => {
-    previousVectorPhases = null;
-    phaseCompareTimer = null;
-    render();
-  },900);
 }
 
 speedMinusEl.addEventListener("click",() => changePlaybackSpeed(-1));
@@ -1088,7 +1053,9 @@ real.addEventListener("pointerdown",event => {
 
   pEl.value = String(kMin()+ix);
   qEl.value = String(kMax()-iy);
-  reset();
+  refreshStoredVectorPhases();
+  runSelfTests();
+  render();
 });
 
 buildSequence();
