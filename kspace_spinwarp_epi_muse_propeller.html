@@ -374,6 +374,10 @@ function isEpiFamily(){
   return isEpi() || isMuse();
 }
 
+function supportsOffResonance(){
+  return methodEl.value === "spinwarp";
+}
+
 function epiBlipMs(){
   return 2;
 }
@@ -402,7 +406,7 @@ function epiReferenceTimeSec(){
 }
 
 function offResonanceHz(){
-  return offResonanceEnabled ? Number(dfEl.value) : 0;
+  return supportsOffResonance() && offResonanceEnabled ? Number(dfEl.value) : 0;
 }
 
 function refreshStoredVectorPhases(){
@@ -417,6 +421,7 @@ function refreshStoredVectorPhases(){
 }
 
 function setOffResonanceEnabled(enabled){
+  if(enabled && !supportsOffResonance()) return;
   if(offResonanceEnabled === enabled) return;
 
   offResonanceEnabled = enabled;
@@ -518,24 +523,33 @@ function buildSequence(){
       });
     }
   }else if(isPropeller()){
-    const bladeCount = N===8 ? 8 : 12;
-    const width = N===8 ? 1.25 : 1.6;
-    const seen = new Set();
+    // PROPELLERの概念モデル：少数の細いbladeを回転させる。
+    // 各bladeは3本の平行readout lineで構成し、同一blade内の重複点は1回だけ取得する。
+    const bladeCount = N===8 ? 4 : 6;
+    const acrossLines = [-1,0,1];
     for(let b=0;b<bladeCount;b++){
       const theta = b*Math.PI/bladeCount;
+      const cosT = Math.cos(theta);
+      const sinT = Math.sin(theta);
       const points=[];
-      centeredValues().forEach(ky=>centeredValues().forEach(kx=>{
-        const along = kx*Math.cos(theta)+ky*Math.sin(theta);
-        const across = -kx*Math.sin(theta)+ky*Math.cos(theta);
-        if(Math.abs(across)<=width){ points.push({kx,ky,along,across}); }
-      }));
-      points.sort((a,b)=>a.across-b.across || a.along-b.along);
+      const bladeSeen = new Set();
+
+      acrossLines.forEach(v=>{
+        centeredValues().forEach(u=>{
+          const kx = Math.round(u*cosT - v*sinT);
+          const ky = Math.round(u*sinT + v*cosT);
+          if(kx<kMin() || kx>kMax() || ky<kMin() || ky>kMax()) return;
+          const key=`${kx},${ky}`;
+          if(bladeSeen.has(key)) return;
+          bladeSeen.add(key);
+          points.push({kx,ky,u,v});
+        });
+      });
+
+      points.sort((a,b)=>a.v-b.v || a.u-b.u);
       out.push({stage:`PROPELLER blade ${b+1}/${bladeCount}：回転角 ${Math.round(theta*180/Math.PI)}°`,kx:null,ky:null,adc:false});
       points.forEach(pt=>{
-        const key=`${pt.kx},${pt.ky}`;
-        // 重複する中心部も再収集することがPROPELLERの特徴なのでsequenceには残す。
-        out.push({stage:`blade ${b+1}：帯状に信号収集`,kx:pt.kx,ky:pt.ky,adc:true});
-        seen.add(key);
+        out.push({stage:`blade ${b+1}：3本の平行lineを収集`,kx:pt.kx,ky:pt.ky,adc:true});
       });
     }
   }else{
@@ -870,9 +884,9 @@ function runSelfTests(){
   N = 8;
   offResonanceEnabled = true;
   dfEl.value = "125";
-  bandwidthEl.value = "double";
   methodEl.value = "spinwarp";
 
+  bandwidthEl.value = "double";
   if(Math.abs(offResonanceShiftPixels()-1)>1e-12){
     errors.push("2倍BWの位置ずれ異常");
   }
@@ -884,24 +898,6 @@ function runSelfTests(){
     errors.push("Spin warpのy位置ずれ異常");
   }
 
-  methodEl.value = "epi";
-  bandwidthEl.value = "epi-high";
-  if(Math.abs(offResonanceShiftPixels()-0.5)>1e-12){
-    errors.push("EPI高受信BWのx位置ずれ異常");
-  }
-  if(Math.abs(yShiftPixels() - 8*125*0.006)>1e-12){
-    errors.push("EPIのy位置ずれ異常");
-  }
-  methodEl.value = "muse";
-  if(Math.abs(yShiftPixels() - 8*125*0.006/2)>1e-12){
-    errors.push("MUSE 2-shotのy位置ずれ異常");
-  }
-  methodEl.value = "epi";
-  const t00 = epiAcquisitionTimeSec(0,0)-epiReferenceTimeSec();
-  if(Math.abs(t00)>1e-12){
-    errors.push("EPI基準時刻異常");
-  }
-
   N = oldN;
   dfEl.value = oldDf;
   bandwidthEl.value = oldBw;
@@ -911,7 +907,7 @@ function runSelfTests(){
   if(errors.length===0){
     testboxEl.className = "testbox";
     testboxEl.textContent =
-      "内部検算：OK｜Spin warpのreadout方向ずれと、EPIの高受信BW・echo spacingによる位相方向ずれを確認。";
+      "内部検算：OK｜オフレゾナンスはSpin warpのみ有効。受信BWとreadout方向ずれを確認。";
   }else{
     testboxEl.className = "testbox error";
     testboxEl.textContent = `内部検算：NG｜${errors.slice(0,4).join("／")}`;
@@ -937,14 +933,19 @@ function render(){
   const apparentY = wrapCentered(q+yShift);
   const recon = reconstructionData();
 
-  const hasOffResonance = offResonanceEnabled;
+  const offresSupported = supportsOffResonance();
+  const hasOffResonance = offresSupported && offResonanceEnabled;
   document.body.classList.toggle("offres-on",hasOffResonance);
   offresStatusEl.className = `status-badge ${hasOffResonance ? "on" : "off"}`;
-  offresStatusEl.textContent = hasOffResonance
-    ? `オフレゾナンスあり　${formatSigned(df,1)} Hz`
-    : "オフレゾナンスなし";
+  offresStatusEl.textContent = !offresSupported
+    ? "オフレゾナンス未実装"
+    : hasOffResonance
+      ? `オフレゾナンスあり　${formatSigned(df,1)} Hz`
+      : "オフレゾナンスなし";
   offresOffEl.className = hasOffResonance ? "" : "active-off";
   offresOnEl.className = hasOffResonance ? "active-on" : "";
+  offresOffEl.disabled = !offresSupported;
+  offresOnEl.disabled = !offresSupported;
   dfEl.disabled = !hasOffResonance;
   dfMinusEl.disabled = !hasOffResonance || Number(dfEl.value) <= Number(dfEl.min);
   dfPlusEl.disabled = !hasOffResonance || Number(dfEl.value) >= Number(dfEl.max);
@@ -968,19 +969,19 @@ function render(){
   if(isEpi()){
     explainEl.textContent =
       `EPIでは1回の励起後にGxを正負交互に切り替え、Gy blipでkyを1行ずつ進めます。`+
-      ` 高受信BW（readout ${readoutMs()} ms）なのでxずれは${formatSigned(shift,2)} pixelと小さく、`+
-      ` yずれは${formatSigned(yShift,2)} pixelと大きくなります。`;
+      ` 現在は収集軌跡のみを表示し、オフレゾナンス効果は未実装です。`;
   }else if(isMuse()){
     explainEl.textContent =
       `MUSEは独立したk空間軌跡名ではなく、multishot EPIのshot間位相を推定・補正する再構成法です。`+
       ` この試作では2-shot EPIとして、shot 1とshot 2が交互のky行を分担します。`+
-      ` 1 shotあたりのEPI factorが半分になるため、単純モデル上の位相方向ずれはsingle-shot EPIの約半分（${formatSigned(yShift,2)} pixel）です。`+
+      ` 現在は収集軌跡のみを表示し、shot間位相推定・補正とオフレゾナンス効果は未実装です。`+
       ` 実際のMUSEの主眼はshot間の位相不整合によるghost・blurを抑えることです。`;
   }else if(isPropeller()){
     explainEl.textContent =
       `PROPELLERでは、k空間中心を通る帯状のbladeを角度を変えながら取得します。`+
       ` 中心部を何度も重複収集するため、blade間の位置ずれや回転を推定しやすく、体動に比較的強い方式です。`+
-      ` この試作はCartesian格子上でbladeに近い点を選ぶ概念表示です。非Cartesian再構成とオフレゾナンス誤差はまだ簡略化しています。`;
+      ` この試作では、各bladeを3本の平行readout lineで近似し、少数のbladeを回転させています。`+
+      ` 非Cartesian再構成とオフレゾナンス効果は未実装です。`;
   }else{
     explainEl.textContent =
       `入力は収集法に依存しないオフレゾナンス Δf としました。`+
@@ -1055,6 +1056,7 @@ matrixEl.addEventListener("change",() => {
 methodEl.addEventListener("input",() => {
   if(isEpiFamily()) bandwidthEl.value = "epi-high";
   else if(bandwidthEl.value === "epi-high") bandwidthEl.value = lastSpinBandwidth;
+  if(!supportsOffResonance()) offResonanceEnabled = false;
   kyorderEl.disabled = isEpiFamily() || isPropeller();
   bandwidthEl.disabled = isEpiFamily() || isPropeller();
   refreshStoredVectorPhases();
@@ -1080,7 +1082,7 @@ function changePlaybackSpeed(delta){
 }
 
 function changeOffResonanceFrequency(delta){
-  if(!offResonanceEnabled) return;
+  if(!supportsOffResonance() || !offResonanceEnabled) return;
   const next = Math.max(Number(dfEl.min),Math.min(Number(dfEl.max),Number(dfEl.value)+delta));
   if(Math.abs(next-Number(dfEl.value)) < 1e-12) return;
 
