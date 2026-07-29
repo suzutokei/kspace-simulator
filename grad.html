@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spin-warp k-space Simulator with Gradient Timeline</title>
+<!-- grad5: compensate the real-space panel width for the Gy strip so the real-space and k-space canvases render at the same scale -->
 <style>
 :root{
   --bg:#f5f5f5; --card:#fff; --text:#111; --muted:#666;
@@ -50,7 +51,7 @@ body.offres-on #real,
 body.offres-on #kspace{
   background:#fffaf8;
 }
-.two{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.two{display:grid;grid-template-columns:minmax(0,calc(50% + 29px)) minmax(0,calc(50% - 29px));gap:7px}
 .panel h2{text-align:center;font-size:17px;margin:6px 0}
 .card,.controls{background:#fff;border:1px solid #ddd;border-radius:11px}
 .card{padding:4px}
@@ -134,15 +135,17 @@ button.primary{background:#111;color:#fff}
 .real-with-gradients{
   display:grid;
   grid-template-columns:54px minmax(0,1fr);
-  grid-template-rows:minmax(0,1fr) 62px;
+  grid-template-rows:auto 62px;
   gap:3px;
   align-items:stretch;
 }
-.gradient-side{grid-column:1;grid-row:1;min-width:0;height:100%;padding-top:42px;padding-bottom:94px}
-.real-main{grid-column:2;grid-row:1;min-width:0;height:100%}
+.gradient-side{grid-column:1;grid-row:1;min-width:0;position:relative;box-sizing:border-box}
+.real-main{grid-column:2;grid-row:1;min-width:0;height:auto}
 .gradient-bottom{grid-column:2;grid-row:2;min-width:0;width:100%}
 .gradient-corner{grid-column:1;grid-row:2;display:flex;align-items:center;justify-content:center;font-size:10px;color:#666;text-align:center}
-.gradient-canvas{display:block;width:100%;height:100%;background:#fbfbfb;border:1px solid #ddd;border-radius:7px}
+.gradient-canvas{display:block;background:transparent;border:0}
+.gradient-side .gradient-canvas{position:absolute;left:0;right:0;top:42px;bottom:94px;width:100%;height:calc(100% - 136px)}
+.gradient-bottom .gradient-canvas{width:100%;height:100%}
 .tr-panel{grid-column:1 / -1;margin-top:1px;background:#f7f9fc;border:1px solid #cbd3df;border-radius:10px;padding:10px 12px}
 .tr-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:7px;font-size:13px;font-weight:800}
 .tr-timeline{display:grid;grid-template-columns:.65fr 1.15fr 1.15fr 5fr .7fr;gap:4px}
@@ -161,8 +164,9 @@ button.primary{background:#111;color:#fff}
 
 .excitation-frame{outline:3px solid rgba(214,56,73,.18);outline-offset:-3px;border-radius:11px}
 @media(max-width:680px){
-  .real-with-gradients{grid-template-columns:44px minmax(0,1fr);grid-template-rows:minmax(0,1fr) 54px}
-  .gradient-side{padding-top:42px;padding-bottom:94px}
+  .two{grid-template-columns:minmax(0,calc(50% + 24px)) minmax(0,calc(50% - 24px))}
+  .real-with-gradients{grid-template-columns:44px minmax(0,1fr);grid-template-rows:auto 54px}
+  .gradient-side .gradient-canvas{top:42px;bottom:94px;height:calc(100% - 136px)}
   .tr-timeline,.tr-kx-row{grid-template-columns:.75fr 1fr 1fr 3.7fr .75fr}
   .tr-segment{font-size:8px;min-height:38px;padding:3px 1px}
 }
@@ -668,61 +672,92 @@ function drawPeriodicApparentMarker(ctx,g,x,y){
 function drawGradientWedge(ctx,orientation,value,label){
   const w=ctx.canvas.width, h=ctx.canvas.height;
   ctx.clearRect(0,0,w,h);
-  ctx.fillStyle="#fbfbfb";
-  ctx.fillRect(0,0,w,h);
-  ctx.strokeStyle="#d0d0d0";
-  ctx.strokeRect(.5,.5,w-1,h-1);
 
   const active=Math.abs(value)>1e-12;
-  const magnitude=Math.min(1,Math.abs(value)/(orientation==="vertical" ? Math.max(1,N/2) : 1));
-  ctx.fillStyle=active?"#24427d":"#d6d9df";
-  ctx.strokeStyle=active?"#24427d":"#aeb3bc";
-  ctx.lineWidth=2;
-  ctx.globalAlpha=active?.76:.24;
+  const maxValue=orientation==="vertical" ? Math.max(1,N/2) : 1;
+  const magnitude=Math.min(1,Math.abs(value)/maxValue);
+  const positive=value>=0;
 
-  // 真の「楔」：一端が一点、反対端が幅をもつ三角形。
+  // 参照図のように、隣り合う2枚の細長い楔で傾斜を表す。
+  // 濃い楔を現在の傾斜、淡い楔を基準磁場の分布イメージとして表示する。
+  const pale=active ? "rgba(126,165,225,0.70)" : "rgba(180,190,205,0.26)";
+  const dark=active ? "rgba(36,66,125,0.95)" : "rgba(150,158,170,0.32)";
+
   if(orientation==="vertical"){
+    const top=2, bottom=h-2;
     const cx=w/2;
-    const top=28, bottom=h-28;
-    const halfWidth=10+(w*.34-10)*magnitude;
+    const full=8 + 8*magnitude;
+    const slim=2.5;
+    const gap=2;
+
+    // 正なら上が広く下が細い。負なら上下を反転。
+    const wideY=positive ? top : bottom;
+    const tipY=positive ? bottom : top;
+
+    ctx.fillStyle=pale;
     ctx.beginPath();
-    if(value>=0){
-      ctx.moveTo(cx,bottom);                 // 下端が尖端
-      ctx.lineTo(cx-halfWidth,top);          // 上端が幅広
-      ctx.lineTo(cx+halfWidth,top);
-    }else{
-      ctx.moveTo(cx,top);                    // 上端が尖端
-      ctx.lineTo(cx+halfWidth,bottom);       // 下端が幅広
-      ctx.lineTo(cx-halfWidth,bottom);
-    }
+    ctx.moveTo(cx-gap/2-full,wideY);
+    ctx.lineTo(cx-gap/2,wideY);
+    ctx.lineTo(cx-gap/2-slim,tipY);
+    ctx.lineTo(cx-gap/2-full*0.72,tipY);
     ctx.closePath();
-    ctx.fill(); ctx.globalAlpha=1; ctx.stroke();
-    ctx.fillStyle="#111"; ctx.font="bold 12px sans-serif"; ctx.textAlign="center";
-    ctx.fillText(label,w/2,17);
-    ctx.font="11px sans-serif";
-    ctx.fillText(active?`${value>0?"+":""}${formatNumber(value,1)}`:"OFF",w/2,h-9);
+    ctx.fill();
+
+    ctx.fillStyle=dark;
+    ctx.beginPath();
+    ctx.moveTo(cx+gap/2,wideY);
+    ctx.lineTo(cx+gap/2+full*0.78,wideY);
+    ctx.lineTo(cx+gap/2+slim,tipY);
+    ctx.lineTo(cx+gap/2,tipY);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.save();
+    ctx.translate(Math.max(8,cx-full*0.45),h/2);
+    ctx.rotate(-Math.PI/2);
+    ctx.fillStyle=active?"#ffffff":"#737b87";
+    ctx.font="bold 12px sans-serif";
+    ctx.textAlign="center";
+    ctx.textBaseline="middle";
+    ctx.fillText(label,0,0);
+    ctx.restore();
   }else{
+    const left=2, right=w-2;
     const cy=h/2;
-    const left=36, right=w-20;
-    const halfWidth=8+(h*.30-8)*magnitude;
+    const full=8 + 8*magnitude;
+    const slim=2.5;
+    const gap=2;
+
+    // 正なら右が広く左が細い。負なら左右を反転。
+    const wideX=positive ? right : left;
+    const tipX=positive ? left : right;
+
+    ctx.fillStyle=pale;
     ctx.beginPath();
-    if(value>=0){
-      ctx.moveTo(left,cy);                   // 左端が尖端
-      ctx.lineTo(right,cy-halfWidth);        // 右端が幅広
-      ctx.lineTo(right,cy+halfWidth);
-    }else{
-      ctx.moveTo(right,cy);                  // 右端が尖端
-      ctx.lineTo(left,cy+halfWidth);         // 左端が幅広
-      ctx.lineTo(left,cy-halfWidth);
-    }
+    ctx.moveTo(wideX,cy-gap/2-full);
+    ctx.lineTo(wideX,cy-gap/2);
+    ctx.lineTo(tipX,cy-gap/2-slim);
+    ctx.lineTo(tipX,cy-gap/2-full*0.72);
     ctx.closePath();
-    ctx.fill(); ctx.globalAlpha=1; ctx.stroke();
-    ctx.fillStyle="#111"; ctx.font="bold 12px sans-serif"; ctx.textAlign="left";
-    ctx.fillText(label,8,16);
-    ctx.font="11px sans-serif";
-    ctx.fillText(active?`${value>0?"+":""}${formatNumber(value,1)}`:"OFF",8,h-8);
+    ctx.fill();
+
+    ctx.fillStyle=dark;
+    ctx.beginPath();
+    ctx.moveTo(wideX,cy+gap/2);
+    ctx.lineTo(wideX,cy+gap/2+full*0.78);
+    ctx.lineTo(tipX,cy+gap/2+slim);
+    ctx.lineTo(tipX,cy+gap/2);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.fillStyle=active?"#ffffff":"#737b87";
+    ctx.font="bold 12px sans-serif";
+    ctx.textAlign="center";
+    ctx.textBaseline="middle";
+    ctx.fillText(label,w/2,cy+full*0.30);
   }
 }
+
 function drawGradientsAndTimeline(){
   const gyScale = current.phase==="gy" ? current.gy : 0;
   const gxScale = (current.phase==="pre" || current.phase==="readout") ? current.gx : 0;
