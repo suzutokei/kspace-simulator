@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spin-warp k-space Simulator with Gradient Timeline</title>
-<!-- grad5: compensate the real-space panel width for the Gy strip so the real-space and k-space canvases render at the same scale -->
+<!-- grad6: overlay Gy/Gx in the real-space canvas margins; both coordinate grids therefore use exactly the same CSS width and cell size -->
 <style>
 :root{
   --bg:#f5f5f5; --card:#fff; --text:#111; --muted:#666;
@@ -51,7 +51,7 @@ body.offres-on #real,
 body.offres-on #kspace{
   background:#fffaf8;
 }
-.two{display:grid;grid-template-columns:minmax(0,calc(50% + 29px)) minmax(0,calc(50% - 29px));gap:7px}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
 .panel h2{text-align:center;font-size:17px;margin:6px 0}
 .card,.controls{background:#fff;border:1px solid #ddd;border-radius:11px}
 .card{padding:4px}
@@ -133,23 +133,21 @@ button.primary{background:#111;color:#fff}
 .testbox.error{background:#fff0ed;border-color:#e2b4aa;color:#8a1f11}
 
 .real-with-gradients{
-  display:grid;
-  grid-template-columns:54px minmax(0,1fr);
-  grid-template-rows:auto 62px;
-  gap:3px;
-  align-items:stretch;
+  position:relative;
+  width:100%;
 }
-.gradient-side{grid-column:1;grid-row:1;min-width:0;position:relative;box-sizing:border-box}
-.real-main{grid-column:2;grid-row:1;min-width:0;height:auto}
-.gradient-bottom{grid-column:2;grid-row:2;min-width:0;width:100%}
-.gradient-corner{grid-column:1;grid-row:2;display:flex;align-items:center;justify-content:center;font-size:10px;color:#666;text-align:center}
-.gradient-canvas{display:block;background:transparent;border:0}
-.gradient-side .gradient-canvas{position:absolute;left:0;right:0;top:42px;bottom:94px;width:100%;height:calc(100% - 136px)}
-.gradient-bottom .gradient-canvas{width:100%;height:100%}
+.real-main{width:100%;min-width:0}
+.gradient-side,.gradient-bottom,.gradient-corner{position:absolute;pointer-events:none;z-index:2}
+/* The real-space canvas uses 500×520 internally. Its square grid is x=64..448, y=42..426.
+   Place the gradient wedges in the canvas margins so they do not change the canvas width or scale. */
+.gradient-side{left:0;top:8.08%;width:12.8%;height:73.85%}
+.gradient-bottom{left:12.8%;top:82.7%;width:76.8%;height:8.65%}
+.gradient-corner{left:0;top:82.7%;width:12.8%;height:12%;display:flex;align-items:flex-start;justify-content:center;padding-top:2px;font-size:9px;color:#666;text-align:center;line-height:1.25}
+.gradient-canvas{display:block;width:100%;height:100%;background:transparent;border:0}
 .tr-panel{grid-column:1 / -1;margin-top:1px;background:#f7f9fc;border:1px solid #cbd3df;border-radius:10px;padding:10px 12px}
 .tr-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:7px;font-size:13px;font-weight:800}
 .tr-timeline{display:grid;grid-template-columns:.65fr 1.15fr 1.15fr 5fr .7fr;gap:4px}
-.tr-segment{position:relative;min-height:48px;border:1px solid #bcc4d0;border-radius:7px;background:#fff;padding:5px 3px;text-align:center;font-size:10px;display:flex;align-items:center;justify-content:center;line-height:1.15}
+.tr-segment{position:relative;min-height:48px;border:1px solid #bcc4d0;border-radius:7px;background:#fff;padding:5px 2px;text-align:center;font-size:clamp(8px,1.45vw,10px);display:flex;align-items:center;justify-content:center;line-height:1.05;white-space:nowrap;overflow:hidden}
 .tr-segment.active{border:2px solid #d63849;background:#fff1f3;font-weight:900}
 .tr-segment.done{background:#eaf0fa;border-color:#879bc0}
 .tr-segment .pulse{position:absolute;bottom:3px;left:10%;right:10%;height:4px;border-radius:3px;background:#24427d;opacity:.25}
@@ -164,11 +162,12 @@ button.primary{background:#111;color:#fff}
 
 .excitation-frame{outline:3px solid rgba(214,56,73,.18);outline-offset:-3px;border-radius:11px}
 @media(max-width:680px){
-  .two{grid-template-columns:minmax(0,calc(50% + 24px)) minmax(0,calc(50% - 24px))}
-  .real-with-gradients{grid-template-columns:44px minmax(0,1fr);grid-template-rows:auto 54px}
-  .gradient-side .gradient-canvas{top:42px;bottom:94px;height:calc(100% - 136px)}
-  .tr-timeline,.tr-kx-row{grid-template-columns:.75fr 1fr 1fr 3.7fr .75fr}
-  .tr-segment{font-size:8px;min-height:38px;padding:3px 1px}
+  .two{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tr-panel{padding:8px 7px}
+  .tr-timeline,.tr-kx-row{grid-template-columns:.72fr 1fr 1.15fr 4.1fr .72fr;gap:3px}
+  .tr-segment{font-size:7.5px;min-height:38px;padding:3px 1px}
+  .tr-head{font-size:11px}
+  .gradient-corner{font-size:7px}
 }
 
 @media(max-width:680px){
@@ -196,10 +195,10 @@ button.primary{background:#111;color:#fff}
     <h2>実空間・再構成位置</h2>
     <div id="realCard" class="card">
       <div class="real-with-gradients">
-        <div class="gradient-side"><canvas id="gyCanvas" class="gradient-canvas" width="70" height="520"></canvas></div>
         <div class="real-main"><canvas id="real" width="500" height="520"></canvas></div>
+        <div class="gradient-side"><canvas id="gyCanvas" class="gradient-canvas" width="64" height="384"></canvas></div>
+        <div class="gradient-bottom"><canvas id="gxCanvas" class="gradient-canvas" width="384" height="45"></canvas></div>
         <div class="gradient-corner">傾斜磁場<br>相対強度</div>
-        <div class="gradient-bottom"><canvas id="gxCanvas" class="gradient-canvas" width="500" height="90"></canvas></div>
       </div>
     </div>
   </section>
@@ -213,11 +212,11 @@ button.primary{background:#111;color:#fff}
       <span id="gradientLabel">Gx 0 ／ Gy 0</span>
     </div>
     <div class="tr-timeline">
-      <div class="tr-segment" data-phase="rf">RF励起<div class="pulse"></div></div>
-      <div class="tr-segment" data-phase="gy">Gy<br>位相エンコード<div class="pulse"></div></div>
-      <div class="tr-segment" data-phase="pre">Gx負<br>prephaser<div class="pulse"></div></div>
-      <div class="tr-segment" data-phase="readout">Gx正＋ADC<br>信号収集<div class="pulse"></div></div>
-      <div class="tr-segment" data-phase="wait">TR終了<div class="pulse"></div></div>
+      <div class="tr-segment" data-phase="rf">RF<div class="pulse"></div></div>
+      <div class="tr-segment" data-phase="gy">Gy位相<div class="pulse"></div></div>
+      <div class="tr-segment" data-phase="pre">Gx pre<div class="pulse"></div></div>
+      <div class="tr-segment" data-phase="readout">Gx読出＋ADC<div class="pulse"></div></div>
+      <div class="tr-segment" data-phase="wait">TR<div class="pulse"></div></div>
     </div>
     <div class="tr-kx-row" aria-label="readout中のkx取得位置">
       <div class="tr-kx-spacer"></div><div class="tr-kx-spacer"></div><div class="tr-kx-spacer"></div>
@@ -678,83 +677,72 @@ function drawGradientWedge(ctx,orientation,value,label){
   const magnitude=Math.min(1,Math.abs(value)/maxValue);
   const positive=value>=0;
 
-  // 参照図のように、隣り合う2枚の細長い楔で傾斜を表す。
-  // 濃い楔を現在の傾斜、淡い楔を基準磁場の分布イメージとして表示する。
-  const pale=active ? "rgba(126,165,225,0.70)" : "rgba(180,190,205,0.26)";
-  const dark=active ? "rgba(36,66,125,0.95)" : "rgba(150,158,170,0.32)";
+  const pale=active ? "rgba(132,174,232,0.72)" : "rgba(180,190,205,0.24)";
+  const dark=active ? "rgba(36,66,125,0.96)" : "rgba(150,158,170,0.30)";
 
   if(orientation==="vertical"){
-    const top=2, bottom=h-2;
-    const cx=w/2;
-    const full=8 + 8*magnitude;
-    const slim=2.5;
-    const gap=2;
-
-    // 正なら上が広く下が細い。負なら上下を反転。
+    const top=2, bottom=h-2, cx=w/2;
+    const gap=Math.max(1,w*0.025);
+    const outer=Math.max(5,w*(0.28+0.16*magnitude));
+    const tip=Math.max(1,w*0.025);
     const wideY=positive ? top : bottom;
     const tipY=positive ? bottom : top;
 
+    // Two adjacent triangular wedges, matching the user's reference drawing.
     ctx.fillStyle=pale;
     ctx.beginPath();
-    ctx.moveTo(cx-gap/2-full,wideY);
-    ctx.lineTo(cx-gap/2,wideY);
-    ctx.lineTo(cx-gap/2-slim,tipY);
-    ctx.lineTo(cx-gap/2-full*0.72,tipY);
+    ctx.moveTo(cx-gap,wideY);
+    ctx.lineTo(cx-gap-outer,wideY);
+    ctx.lineTo(cx-gap-tip,tipY);
     ctx.closePath();
     ctx.fill();
 
     ctx.fillStyle=dark;
     ctx.beginPath();
-    ctx.moveTo(cx+gap/2,wideY);
-    ctx.lineTo(cx+gap/2+full*0.78,wideY);
-    ctx.lineTo(cx+gap/2+slim,tipY);
-    ctx.lineTo(cx+gap/2,tipY);
+    ctx.moveTo(cx+gap,wideY);
+    ctx.lineTo(cx+gap+outer,wideY);
+    ctx.lineTo(cx+gap+tip,tipY);
     ctx.closePath();
     ctx.fill();
 
     ctx.save();
-    ctx.translate(Math.max(8,cx-full*0.45),h/2);
+    ctx.translate(cx,h/2);
     ctx.rotate(-Math.PI/2);
-    ctx.fillStyle=active?"#ffffff":"#737b87";
-    ctx.font="bold 12px sans-serif";
+    ctx.fillStyle=active ? "#ffffff" : "#727985";
+    ctx.font=`bold ${Math.max(9,Math.round(w*0.18))}px sans-serif`;
     ctx.textAlign="center";
     ctx.textBaseline="middle";
     ctx.fillText(label,0,0);
     ctx.restore();
   }else{
-    const left=2, right=w-2;
-    const cy=h/2;
-    const full=8 + 8*magnitude;
-    const slim=2.5;
-    const gap=2;
-
-    // 正なら右が広く左が細い。負なら左右を反転。
+    const left=2, right=w-2, cy=h/2;
+    const gap=Math.max(1,h*0.025);
+    const outer=Math.max(5,h*(0.28+0.16*magnitude));
+    const tip=Math.max(1,h*0.025);
     const wideX=positive ? right : left;
     const tipX=positive ? left : right;
 
     ctx.fillStyle=pale;
     ctx.beginPath();
-    ctx.moveTo(wideX,cy-gap/2-full);
-    ctx.lineTo(wideX,cy-gap/2);
-    ctx.lineTo(tipX,cy-gap/2-slim);
-    ctx.lineTo(tipX,cy-gap/2-full*0.72);
+    ctx.moveTo(wideX,cy-gap);
+    ctx.lineTo(wideX,cy-gap-outer);
+    ctx.lineTo(tipX,cy-gap-tip);
     ctx.closePath();
     ctx.fill();
 
     ctx.fillStyle=dark;
     ctx.beginPath();
-    ctx.moveTo(wideX,cy+gap/2);
-    ctx.lineTo(wideX,cy+gap/2+full*0.78);
-    ctx.lineTo(tipX,cy+gap/2+slim);
-    ctx.lineTo(tipX,cy+gap/2);
+    ctx.moveTo(wideX,cy+gap);
+    ctx.lineTo(wideX,cy+gap+outer);
+    ctx.lineTo(tipX,cy+gap+tip);
     ctx.closePath();
     ctx.fill();
 
-    ctx.fillStyle=active?"#ffffff":"#737b87";
-    ctx.font="bold 12px sans-serif";
+    ctx.fillStyle=active ? "#ffffff" : "#727985";
+    ctx.font=`bold ${Math.max(9,Math.round(h*0.25))}px sans-serif`;
     ctx.textAlign="center";
     ctx.textBaseline="middle";
-    ctx.fillText(label,w/2,cy+full*0.30);
+    ctx.fillText(label,w/2,cy);
   }
 }
 
