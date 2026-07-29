@@ -146,14 +146,14 @@ button.primary{background:#111;color:#fff}
 .gradient-canvas{display:block;width:100%;height:100%;background:transparent;border:0}
 .tr-panel{grid-column:1 / -1;margin-top:1px;background:#f7f9fc;border:1px solid #cbd3df;border-radius:10px;padding:10px 12px}
 .tr-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:7px;font-size:13px;font-weight:800}
-.tr-timeline{display:grid;grid-template-columns:.65fr 1.15fr 1.15fr 5fr .7fr;gap:4px}
+.tr-timeline{display:grid;grid-template-columns:.65fr 1.15fr 1.15fr 5fr;gap:4px}
 .tr-segment{position:relative;min-height:48px;border:1px solid #bcc4d0;border-radius:7px;background:#fff;padding:5px 2px;text-align:center;font-size:clamp(8px,1.45vw,10px);display:flex;align-items:center;justify-content:center;line-height:1.05;white-space:nowrap;overflow:hidden}
 .tr-segment.active{border:2px solid #d63849;background:#fff1f3;font-weight:900}
 .tr-segment.done{background:#eaf0fa;border-color:#879bc0}
 .tr-segment .pulse{position:absolute;bottom:3px;left:10%;right:10%;height:4px;border-radius:3px;background:#24427d;opacity:.25}
 .tr-segment.active .pulse{opacity:1;background:#d63849}
 
-.tr-kx-row{display:grid;grid-template-columns:.65fr 1.15fr 1.15fr 5fr .7fr;gap:4px;margin-top:5px}
+.tr-kx-row{display:grid;grid-template-columns:.65fr 1.15fr 1.15fr 5fr;gap:4px;margin-top:5px}
 .tr-kx-spacer{min-height:1px}
 .tr-kx-track{grid-column:4;display:grid;gap:2px;align-items:center}
 .tr-kx-cell{height:25px;border:1px solid #c8ced8;border-radius:5px;background:#fff;text-align:center;font-size:10px;line-height:23px;color:#5f6670}
@@ -164,7 +164,7 @@ button.primary{background:#111;color:#fff}
 @media(max-width:680px){
   .two{grid-template-columns:repeat(2,minmax(0,1fr))}
   .tr-panel{padding:8px 7px}
-  .tr-timeline,.tr-kx-row{grid-template-columns:.72fr 1fr 1.15fr 4.1fr .72fr;gap:3px}
+  .tr-timeline,.tr-kx-row{grid-template-columns:.72fr 1fr 1.15fr 4.1fr;gap:3px}
   .tr-segment{font-size:7.5px;min-height:38px;padding:3px 1px}
   .tr-head{font-size:11px}
   .gradient-corner{font-size:7px}
@@ -198,7 +198,7 @@ button.primary{background:#111;color:#fff}
         <div class="real-main"><canvas id="real" width="500" height="520"></canvas></div>
         <div class="gradient-side"><canvas id="gyCanvas" class="gradient-canvas" width="64" height="384"></canvas></div>
         <div class="gradient-bottom"><canvas id="gxCanvas" class="gradient-canvas" width="384" height="45"></canvas></div>
-        <div class="gradient-corner">傾斜磁場<br>相対強度</div>
+        <div class="gradient-corner" aria-hidden="true"></div>
       </div>
     </div>
   </section>
@@ -213,15 +213,13 @@ button.primary{background:#111;color:#fff}
     </div>
     <div class="tr-timeline">
       <div class="tr-segment" data-phase="rf">RF<div class="pulse"></div></div>
-      <div class="tr-segment" data-phase="gy">Gy位相<div class="pulse"></div></div>
+      <div class="tr-segment" data-phase="gy">Gy<div class="pulse"></div></div>
       <div class="tr-segment" data-phase="pre">Gx pre<div class="pulse"></div></div>
-      <div class="tr-segment" data-phase="readout">Gx読出＋ADC<div class="pulse"></div></div>
-      <div class="tr-segment" data-phase="wait">TR<div class="pulse"></div></div>
+      <div class="tr-segment" data-phase="readout">Gx readout<div class="pulse"></div></div>
     </div>
     <div class="tr-kx-row" aria-label="readout中のkx取得位置">
       <div class="tr-kx-spacer"></div><div class="tr-kx-spacer"></div><div class="tr-kx-spacer"></div>
       <div id="kxTrack" class="tr-kx-track"></div>
-      <div class="tr-kx-spacer"></div>
     </div>
   </div>
 </main>
@@ -834,7 +832,7 @@ function drawReal(){
   rctx.fillStyle = "#24427d";
   rctx.fillText("● 真の位置",g.left,g.top+g.size+61);
   rctx.fillStyle = "#d46a16";
-  rctx.fillText("○ 見かけの連続位置　橙色＝離散再構成像",g.left+95,g.top+g.size+61);
+  rctx.fillText("○ 見かけの位置　橙色＝再構成位置",g.left+95,g.top+g.size+61);
 }
 
 function drawKspace(){
@@ -1092,11 +1090,11 @@ function render(){
   stageEl.textContent = current.stage;
 
   explainEl.textContent =
-    `左の楔はGy、下の楔はGxです。向きが極性、太さが相対強度を示します。1回の励起はRFからTR終了までで、現在位置を下のタイムラインに表示します。`+
+    `左の楔はGy、下の楔はGxです。向きが極性、太さが相対強度を示します。1回の励起はRFから次のRF直前までで、現在位置を下のタイムラインに表示します。`+
     ` 入力は収集法に依存しないオフレゾナンス Δf としました。`+
     ` Spin warpでは x位置ずれ = Δf × readout時間 = ${formatSigned(shift,2)} pixel。`+
     ` 現在の符号規約では正のΔfは＋x方向へ移動し、FOV外へ出ると反対側へwrapします。`+
-    ` 見かけの連続位置は(${formatNumber(apparentX,2)},${formatNumber(apparentY,2)})、離散再構成の最大画素は${peakText(recon.peaks)}です。`;
+    ` 見かけの位置は(${formatNumber(apparentX,2)},${formatNumber(apparentY,2)})、離散再構成の最大画素は${peakText(recon.peaks)}です。`;
 
   if(Math.abs(shift-Math.round(shift))>1e-9){
     explainEl.textContent +=
