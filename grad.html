@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spin-warp k-space Simulator with Gradient Timeline</title>
-<!-- grad6: overlay Gy/Gx in the real-space canvas margins; both coordinate grids therefore use exactly the same CSS width and cell size -->
+<!-- grad8: Gy amplitude follows the ky displacement; simplified coordinate labels and widened readout timeline -->
 <style>
 :root{
   --bg:#f5f5f5; --card:#fff; --text:#111; --muted:#666;
@@ -146,25 +146,26 @@ button.primary{background:#111;color:#fff}
 .gradient-canvas{display:block;width:100%;height:100%;background:transparent;border:0}
 .tr-panel{grid-column:1 / -1;margin-top:1px;background:#f7f9fc;border:1px solid #cbd3df;border-radius:10px;padding:10px 12px}
 .tr-head{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:7px;font-size:13px;font-weight:800}
-.tr-timeline{display:grid;grid-template-columns:.65fr 1.15fr 1.15fr 5fr;gap:4px}
+.tr-timeline{display:grid;grid-template-columns:.55fr .8fr 1fr 7.2fr;gap:4px}
 .tr-segment{position:relative;min-height:48px;border:1px solid #bcc4d0;border-radius:7px;background:#fff;padding:5px 2px;text-align:center;font-size:clamp(8px,1.45vw,10px);display:flex;align-items:center;justify-content:center;line-height:1.05;white-space:nowrap;overflow:hidden}
 .tr-segment.active{border:2px solid #d63849;background:#fff1f3;font-weight:900}
 .tr-segment.done{background:#eaf0fa;border-color:#879bc0}
 .tr-segment .pulse{position:absolute;bottom:3px;left:10%;right:10%;height:4px;border-radius:3px;background:#24427d;opacity:.25}
 .tr-segment.active .pulse{opacity:1;background:#d63849}
 
-.tr-kx-row{display:grid;grid-template-columns:.65fr 1.15fr 1.15fr 5fr;gap:4px;margin-top:5px}
+.tr-kx-row{display:grid;grid-template-columns:.55fr .8fr 1fr 7.2fr;gap:4px;margin-top:5px}
 .tr-kx-spacer{min-height:1px}
 .tr-kx-track{grid-column:4;display:grid;gap:2px;align-items:center}
-.tr-kx-cell{height:25px;border:1px solid #c8ced8;border-radius:5px;background:#fff;text-align:center;font-size:10px;line-height:23px;color:#5f6670}
+.tr-kx-cell{min-width:0;height:25px;border:1px solid #c8ced8;border-radius:5px;background:#fff;text-align:center;font-size:10px;line-height:23px;color:#5f6670;padding:0;overflow:hidden}
 .tr-kx-cell.done{background:#eaf0fa;border-color:#879bc0;color:#24427d;font-weight:800}
 .tr-kx-cell.active{background:#fff1f3;border:2px solid #d63849;color:#a52133;font-weight:900;line-height:21px}
+.tr-kx-track.matrix16 .tr-kx-cell{font-size:7px;border-radius:3px;letter-spacing:-.04em}
 
 .excitation-frame{outline:3px solid rgba(214,56,73,.18);outline-offset:-3px;border-radius:11px}
 @media(max-width:680px){
   .two{grid-template-columns:repeat(2,minmax(0,1fr))}
   .tr-panel{padding:8px 7px}
-  .tr-timeline,.tr-kx-row{grid-template-columns:.72fr 1fr 1.15fr 4.1fr;gap:3px}
+  .tr-timeline,.tr-kx-row{grid-template-columns:.52fr .72fr .92fr 6.8fr;gap:3px}
   .tr-segment{font-size:7.5px;min-height:38px;padding:3px 1px}
   .tr-head{font-size:11px}
   .gradient-corner{font-size:7px}
@@ -187,7 +188,7 @@ button.primary{background:#111;color:#fff}
     <h1>k-space Phase Vector Simulator</h1>
     <div id="offresStatus" class="status-badge off">オフレゾナンスなし</div>
   </div>
-  <p>8×8では左下 (−4,−4)、右上 (3,3)。青＝真の位置、橙＝オフレゾナンス後の再構成位置。</p>
+  <p>青＝真の位置、橙＝オフレゾナンス後の再構成位置。</p>
 </header>
 
 <main class="two">
@@ -318,7 +319,7 @@ button.primary{background:#111;color:#fff}
     <div>readout時間<b id="readoutRead">8 ms</b></div>
     <div>x位置ずれ<b id="shiftRead">0 pixel</b></div>
     <div>y位置ずれ<b id="yShiftRead">0 pixel</b></div>
-    <div>見かけ位置<b id="apparentRead">(1,2)</b></div>
+    <div>見かけの位置<b id="apparentRead">(1,2)</b></div>
     <div>段階<b id="stage">待機</b></div>
   </div>
 
@@ -513,7 +514,9 @@ function buildSequence(){
   kys.forEach((ky,index) => {
     const excitation = index + 1;
     out.push({stage:`RF励起：第${excitation}励起`,phase:"rf",excitation,kx:null,ky,adc:false,gx:0,gy:0});
-    out.push({stage:`Gy位相エンコード：ky=${ky}`,phase:"gy",excitation,kx:null,ky,adc:false,gx:0,gy:ky});
+    // 各励起はk空間原点から始まるため、Gyの面積（相対値）は原点から目的kyまでの移動量 Δky に比例する。
+    const deltaKy = ky;
+    out.push({stage:`Gy：Δky=${deltaKy}`,phase:"gy",excitation,kx:null,ky,adc:false,gx:0,gy:deltaKy});
     out.push({stage:"Gx負のprephaser",phase:"pre",excitation,kx:kMin(),ky,adc:false,gx:-1,gy:0});
 
     xs.forEach(kx => {
@@ -671,7 +674,7 @@ function drawGradientWedge(ctx,orientation,value,label){
   ctx.clearRect(0,0,w,h);
 
   const active=Math.abs(value)>1e-12;
-  const maxValue=orientation==="vertical" ? Math.max(1,N/2) : 1;
+  const maxValue=orientation==="vertical" ? Math.max(1,Math.abs(kMin()),Math.abs(kMax())) : 1;
   const magnitude=Math.min(1,Math.abs(value)/maxValue);
   const positive=value>=0;
 
@@ -766,6 +769,7 @@ function drawGradientsAndTimeline(){
 
   const xs=centeredValues();
   kxTrackEl.style.gridTemplateColumns=`repeat(${xs.length},minmax(0,1fr))`;
+  kxTrackEl.classList.toggle("matrix16",N===16);
   kxTrackEl.innerHTML=xs.map(kx=>{
     let cls="tr-kx-cell";
     if(current.phase==="readout" && current.kx!==null){
@@ -822,17 +826,17 @@ function drawReal(){
     rctx.strokeRect(x+2,y+2,g.cell-4,g.cell-4);
   });
 
-  rctx.fillStyle = "#111";
+  // 凡例は左右に分け、文字が重ならないよう配置する。
   rctx.font = "11px sans-serif";
-  rctx.fillText(`左下 (${kMin()},${kMin()})`,g.left,g.top+g.size+42);
-  rctx.textAlign = "right";
-  rctx.fillText(`右上 (${kMax()},${kMax()})`,g.left+g.size,g.top-10);
-  rctx.textAlign = "left";
-
+  rctx.textBaseline = "middle";
   rctx.fillStyle = "#24427d";
-  rctx.fillText("● 真の位置",g.left,g.top+g.size+61);
+  rctx.textAlign = "left";
+  rctx.fillText("● 真の位置",g.left,g.top+g.size+55);
   rctx.fillStyle = "#d46a16";
-  rctx.fillText("○ 見かけの位置　橙色＝再構成位置",g.left+95,g.top+g.size+61);
+  rctx.textAlign = "right";
+  rctx.fillText("○ 見かけの位置",g.left+g.size,g.top+g.size+55);
+  rctx.textAlign = "left";
+  rctx.textBaseline = "alphabetic";
 }
 
 function drawKspace(){
@@ -884,12 +888,7 @@ function drawKspace(){
     );
   }
 
-  kctx.fillStyle = "#111";
-  kctx.font = "11px sans-serif";
-  kctx.fillText(`左下 (${kMin()},${kMin()})`,g.left,g.top+g.size+42);
-  kctx.textAlign = "right";
-  kctx.fillText(`右上 (${kMax()},${kMax()})`,g.left+g.size,g.top-10);
-  kctx.textAlign = "left";
+
 }
 
 function storeVector(event){
