@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spin-warp k-space Simulator with Gradient Timeline</title>
-<!-- grad8: Gy amplitude follows the ky displacement; simplified coordinate labels and widened readout timeline -->
+<!-- grad10: paired congruent right triangles, 180-degree rotated, slope encodes gradient strength -->
 <style>
 :root{
   --bg:#f5f5f5; --card:#fff; --text:#111; --muted:#666;
@@ -674,40 +674,68 @@ function drawGradientWedge(ctx,orientation,value,label){
   ctx.clearRect(0,0,w,h);
 
   const active=Math.abs(value)>1e-12;
-  const maxValue=orientation==="vertical" ? Math.max(1,Math.abs(kMin()),Math.abs(kMax())) : 1;
+  const maxValue=orientation==="vertical"
+    ? Math.max(1,Math.abs(kMin()),Math.abs(kMax()))
+    : 1;
   const magnitude=Math.min(1,Math.abs(value)/maxValue);
-  const positive=value>=0;
+  const positive=value>0;
 
-  const pale=active ? "rgba(132,174,232,0.72)" : "rgba(180,190,205,0.24)";
-  const dark=active ? "rgba(36,66,125,0.96)" : "rgba(150,158,170,0.30)";
+  const pale="rgba(133,174,232,0.74)";
+  const dark="rgba(38,70,133,0.97)";
+  const outline="rgba(31,58,111,0.98)";
+  const idle="rgba(155,165,180,0.35)";
 
   if(orientation==="vertical"){
-    const top=2, bottom=h-2, cx=w/2;
-    const gap=Math.max(1,w*0.025);
-    const outer=Math.max(5,w*(0.28+0.16*magnitude));
-    const tip=Math.max(1,w*0.025);
-    const wideY=positive ? top : bottom;
-    const tipY=positive ? bottom : top;
+    const top=3, bottom=h-3, cy=h/2;
+    const centerX=w/2;
+    const minHalf=Math.max(2,w*0.035);
+    const maxHalf=Math.max(minHalf+2,w*0.46);
+    const half=minHalf+(maxHalf-minHalf)*magnitude;
+    const neck=Math.max(1,w*0.018);
 
-    // Two adjacent triangular wedges, matching the user's reference drawing.
-    ctx.fillStyle=pale;
-    ctx.beginPath();
-    ctx.moveTo(cx-gap,wideY);
-    ctx.lineTo(cx-gap-outer,wideY);
-    ctx.lineTo(cx-gap-tip,tipY);
-    ctx.closePath();
-    ctx.fill();
+    if(active){
+      // Two congruent right triangles, with the lower one rotated 180 degrees.
+      // Their horizontal spread changes with |Gy|, making the slope itself encode strength.
+      const upperWideSide = positive ? 1 : -1;
+      const lowerWideSide = -upperWideSide;
 
-    ctx.fillStyle=dark;
-    ctx.beginPath();
-    ctx.moveTo(cx+gap,wideY);
-    ctx.lineTo(cx+gap+outer,wideY);
-    ctx.lineTo(cx+gap+tip,tipY);
-    ctx.closePath();
-    ctx.fill();
+      const ux0=centerX-upperWideSide*neck;
+      const ux1=centerX+upperWideSide*half;
+      const ucx=centerX+upperWideSide*neck;
+      ctx.fillStyle=pale;
+      ctx.beginPath();
+      ctx.moveTo(ux0,top);
+      ctx.lineTo(ux1,top);
+      ctx.lineTo(ucx,cy);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle=outline;
+      ctx.lineWidth=Math.max(1.2,w*0.022);
+      ctx.stroke();
+
+      const lcx=centerX+lowerWideSide*neck;
+      const lx0=centerX-lowerWideSide*neck;
+      const lx1=centerX+lowerWideSide*half;
+      ctx.fillStyle=dark;
+      ctx.beginPath();
+      ctx.moveTo(lcx,cy);
+      ctx.lineTo(lx1,bottom);
+      ctx.lineTo(lx0,bottom);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle=outline;
+      ctx.stroke();
+    }else{
+      ctx.strokeStyle=idle;
+      ctx.lineWidth=Math.max(1,w*0.025);
+      ctx.beginPath();
+      ctx.moveTo(centerX,top);
+      ctx.lineTo(centerX,bottom);
+      ctx.stroke();
+    }
 
     ctx.save();
-    ctx.translate(cx,h/2);
+    ctx.translate(centerX,h/2);
     ctx.rotate(-Math.PI/2);
     ctx.fillStyle=active ? "#ffffff" : "#727985";
     ctx.font=`bold ${Math.max(9,Math.round(w*0.18))}px sans-serif`;
@@ -716,34 +744,58 @@ function drawGradientWedge(ctx,orientation,value,label){
     ctx.fillText(label,0,0);
     ctx.restore();
   }else{
-    const left=2, right=w-2, cy=h/2;
-    const gap=Math.max(1,h*0.025);
-    const outer=Math.max(5,h*(0.28+0.16*magnitude));
-    const tip=Math.max(1,h*0.025);
-    const wideX=positive ? right : left;
-    const tipX=positive ? left : right;
+    const left=3, right=w-3, cx=w/2;
+    const centerY=h/2;
+    const minHalf=Math.max(2,h*0.035);
+    const maxHalf=Math.max(minHalf+2,h*0.46);
+    const half=minHalf+(maxHalf-minHalf)*magnitude;
+    const neck=Math.max(1,h*0.018);
 
-    ctx.fillStyle=pale;
-    ctx.beginPath();
-    ctx.moveTo(wideX,cy-gap);
-    ctx.lineTo(wideX,cy-gap-outer);
-    ctx.lineTo(tipX,cy-gap-tip);
-    ctx.closePath();
-    ctx.fill();
+    if(active){
+      // Same hourglass pair rotated 90 degrees for Gx.
+      const leftWideSide = positive ? -1 : 1;
+      const rightWideSide = -leftWideSide;
 
-    ctx.fillStyle=dark;
-    ctx.beginPath();
-    ctx.moveTo(wideX,cy+gap);
-    ctx.lineTo(wideX,cy+gap+outer);
-    ctx.lineTo(tipX,cy+gap+tip);
-    ctx.closePath();
-    ctx.fill();
+      const ly0=centerY-leftWideSide*neck;
+      const ly1=centerY+leftWideSide*half;
+      const lcy=centerY+leftWideSide*neck;
+      ctx.fillStyle=pale;
+      ctx.beginPath();
+      ctx.moveTo(left,ly0);
+      ctx.lineTo(left,ly1);
+      ctx.lineTo(cx,lcy);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle=outline;
+      ctx.lineWidth=Math.max(1.2,h*0.022);
+      ctx.stroke();
+
+      const rcy=centerY+rightWideSide*neck;
+      const ry0=centerY-rightWideSide*neck;
+      const ry1=centerY+rightWideSide*half;
+      ctx.fillStyle=dark;
+      ctx.beginPath();
+      ctx.moveTo(cx,rcy);
+      ctx.lineTo(right,ry1);
+      ctx.lineTo(right,ry0);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle=outline;
+      ctx.stroke();
+    }else{
+      ctx.strokeStyle=idle;
+      ctx.lineWidth=Math.max(1,h*0.025);
+      ctx.beginPath();
+      ctx.moveTo(left,centerY);
+      ctx.lineTo(right,centerY);
+      ctx.stroke();
+    }
 
     ctx.fillStyle=active ? "#ffffff" : "#727985";
     ctx.font=`bold ${Math.max(9,Math.round(h*0.25))}px sans-serif`;
     ctx.textAlign="center";
     ctx.textBaseline="middle";
-    ctx.fillText(label,w/2,cy);
+    ctx.fillText(label,w/2,centerY);
   }
 }
 
