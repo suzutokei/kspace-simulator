@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Spin-warp k-space Simulator with Gradient Timeline</title>
-<!-- grad11: verified slope scaling; red=positive, blue=negative gradient polarity -->
+<title>Spin-warp k-space Simulator with Gradient-synchronized Cursor</title>
+<!-- grad12: k-space square cursor moves during Gy and Gx pre, synchronized with gradient timing -->
 <style>
 :root{
   --bg:#f5f5f5; --card:#fff; --text:#111; --muted:#666;
@@ -511,18 +511,52 @@ function buildSequence(){
   const xs = centeredValues();
   const kys = kyValues();
 
-  kys.forEach((ky,index) => {
+  kys.forEach((targetKy,index) => {
     const excitation = index + 1;
-    out.push({stage:`RF励起：第${excitation}励起`,phase:"rf",excitation,kx:null,ky,adc:false,gx:0,gy:0});
-    // 各励起はk空間原点から始まるため、Gyの面積（相対値）は原点から目的kyまでの移動量 Δky に比例する。
-    const deltaKy = ky;
-    out.push({stage:`Gy：Δky=${deltaKy}`,phase:"gy",excitation,kx:null,ky,adc:false,gx:0,gy:deltaKy});
-    out.push({stage:"Gx負のprephaser",phase:"pre",excitation,kx:kMin(),ky,adc:false,gx:-1,gy:0});
 
-    xs.forEach(kx => {
-      out.push({stage:"Gx正：信号収集",phase:"readout",excitation,kx,ky,adc:true,gx:1,gy:0});
+    // RF直後のk空間位置は原点。□を現在位置として表示する。
+    out.push({
+      stage:`RF励起：第${excitation}励起`,phase:"rf",excitation,
+      kx:0,ky:0,targetKy,adc:false,gx:0,gy:0
     });
-    out.push({stage:`第${excitation}励起終了`,phase:"wait",excitation,kx:null,ky,adc:false,gx:0,gy:0});
+
+    // Gy印加中は、勾配の極性に対応して原点から目的kyへ1マスずつ移動する。
+    // Gyの表示強度は目的位置までの総移動量 Δky に対応し、移動中は一定とする。
+    const deltaKy = targetKy;
+    if(deltaKy===0){
+      out.push({
+        stage:"Gy：Δky=0（移動なし）",phase:"gy",excitation,
+        kx:0,ky:0,targetKy,adc:false,gx:0,gy:0
+      });
+    }else{
+      const stepY = Math.sign(deltaKy);
+      for(let cursorKy=stepY; stepY>0 ? cursorKy<=targetKy : cursorKy>=targetKy; cursorKy+=stepY){
+        out.push({
+          stage:`Gy：k=(0,${cursorKy})へ移動`,phase:"gy",excitation,
+          kx:0,ky:cursorKy,targetKy,adc:false,gx:0,gy:deltaKy
+        });
+      }
+    }
+
+    // 負のGx prephaserで、(0,targetKy)から読出し開始点(kxmin,targetKy)へ左向きに移動する。
+    for(let cursorKx=-1; cursorKx>=kMin(); cursorKx--){
+      out.push({
+        stage:`Gx pre：k=(${cursorKx},${targetKy})へ移動`,phase:"pre",excitation,
+        kx:cursorKx,ky:targetKy,targetKy,adc:false,gx:-1,gy:0
+      });
+    }
+
+    // 正のGx readoutで左端から右端へ移動し、各位置の位相ベクトルを取得する。
+    xs.forEach(kx => {
+      out.push({
+        stage:"Gx readout：信号収集",phase:"readout",excitation,
+        kx,ky:targetKy,targetKy,adc:true,gx:1,gy:0
+      });
+    });
+    out.push({
+      stage:`第${excitation}励起終了`,phase:"wait",excitation,
+      kx:null,ky:null,targetKy,adc:false,gx:0,gy:0
+    });
   });
 
   sequence = out;
@@ -807,8 +841,10 @@ function drawGradientsAndTimeline(){
   realCardEl.classList.toggle("excitation-frame",current.phase!=="idle" && current.phase!=="wait");
   const total=N;
   const exc=current.excitation||1;
-  const ky=current.ky!==null?current.ky:kyValues()[Math.min(exc-1,kyValues().length-1)];
-  excitationLabelEl.textContent=`第${exc}励起 / ${total}　ky = ${ky}`;
+  const targetKy=current.targetKy!==undefined && current.targetKy!==null
+    ? current.targetKy
+    : kyValues()[Math.min(exc-1,kyValues().length-1)];
+  excitationLabelEl.textContent=`第${exc}励起 / ${total}　ky = ${targetKy}`;
   gradientLabelEl.textContent=`Gx ${gxScale>0?"+":""}${formatNumber(gxScale,1)} ／ Gy ${gyScale>0?"+":""}${formatNumber(gyScale,1)}`;
 
   const xs=centeredValues();
@@ -953,7 +989,7 @@ function fillAll(){
     centeredValues().forEach(kx => storeVector({kx,ky}));
   });
 
-  current = {stage:"全マス表示",phase:"idle",excitation:0,kx:null,ky:null,adc:false,gx:0,gy:0};
+  current = {stage:"全マス表示",phase:"idle",excitation:0,kx:null,ky:null,targetKy:null,adc:false,gx:0,gy:0};
   seqIndex = sequence.length;
   render();
 }
@@ -1072,15 +1108,33 @@ function runSelfTests(){
     errors.push("FOV wrap異常");
   }
 
+  // k空間カーソルの移動方向を検算する。
+  buildSequence();
+  const firstExc = sequence.filter(e=>e.excitation===1);
+  const gyEvents = firstExc.filter(e=>e.phase==="gy");
+  const preEvents = firstExc.filter(e=>e.phase==="pre");
+  const readEvents = firstExc.filter(e=>e.phase==="readout");
+  const targetKy = kyValues()[0];
+  if(gyEvents.length && gyEvents.at(-1).ky!==targetKy){
+    errors.push("Gyカーソル終点異常");
+  }
+  if(preEvents.length && !(preEvents[0].kx===-1 && preEvents.at(-1).kx===kMin())){
+    errors.push("Gx pre移動方向異常");
+  }
+  if(readEvents.length && !(readEvents[0].kx===kMin() && readEvents.at(-1).kx===kMax())){
+    errors.push("Gx readout移動方向異常");
+  }
+
   N = oldN;
   dfEl.value = oldDf;
   bandwidthEl.value = oldBw;
   offResonanceEnabled = oldEnabled;
+  buildSequence();
 
   if(errors.length===0){
     testboxEl.className = "testbox";
     testboxEl.textContent =
-      "内部検算：OK｜座標、位相ベクトル、x位置ずれ、Spin warpでのy位置ずれ0、ky周期不変、FOV wrapを確認。";
+      "内部検算：OK｜座標、位相ベクトル、Gy縦移動、Gx pre左移動、readout右移動、x位置ずれ、y位置ずれ0、FOV wrapを確認。";
   }else{
     testboxEl.className = "testbox error";
     testboxEl.textContent = `内部検算：NG｜${errors.slice(0,4).join("／")}`;
@@ -1133,7 +1187,7 @@ function render(){
   stageEl.textContent = current.stage;
 
   explainEl.textContent =
-    `左の楔はGy、下の楔はGxです。斜辺の傾きが勾配強度に比例し、赤は＋、青は−の磁場偏位を示します。1回の励起はRFから次のRF直前までで、現在位置を下のタイムラインに表示します。`+
+    `左の楔はGy、下の楔はGxです。斜辺の傾きが勾配強度に比例し、赤は＋、青は−の磁場偏位を示します。1回の励起はRFから次のRF直前までで、□は現在のk空間位置です。RFでは原点、Gyでは縦方向、Gx preでは左方向へ移動し、Gx readout中は右へ進みながら位相ベクトルを書き込みます。`+
     ` 入力は収集法に依存しないオフレゾナンス Δf としました。`+
     ` Spin warpでは x位置ずれ = Δf × readout時間 = ${formatSigned(shift,2)} pixel。`+
     ` 現在の符号規約では正のΔfは＋x方向へ移動し、FOV外へ出ると反対側へwrapします。`+
@@ -1157,7 +1211,7 @@ function render(){
 function advance(){
   if(seqIndex>=sequence.length){
     stop();
-    current = {stage:"完了",phase:"idle",excitation:N,kx:null,ky:null,adc:false,gx:0,gy:0};
+    current = {stage:"完了",phase:"idle",excitation:N,kx:null,ky:null,targetKy:null,adc:false,gx:0,gy:0};
     render();
     return;
   }
@@ -1185,7 +1239,7 @@ function reset(){
   previousVectorPhases = null;
   vectors.clear();
   seqIndex = 0;
-  current = {stage:"待機",phase:"idle",excitation:0,kx:null,ky:null,adc:false,gx:0,gy:0};
+  current = {stage:"待機",phase:"idle",excitation:0,kx:null,ky:null,targetKy:null,adc:false,gx:0,gy:0};
   buildSequence();
   runSelfTests();
   render();
