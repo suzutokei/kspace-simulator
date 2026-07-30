@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Spin-warp k-space Simulator with Gradient Timeline</title>
-<!-- grad10: paired congruent right triangles, 180-degree rotated, slope encodes gradient strength -->
+<!-- grad11: verified slope scaling; red=positive, blue=negative gradient polarity -->
 <style>
 :root{
   --bg:#f5f5f5; --card:#fff; --text:#111; --muted:#666;
@@ -680,51 +680,58 @@ function drawGradientWedge(ctx,orientation,value,label){
   const magnitude=Math.min(1,Math.abs(value)/maxValue);
   const positive=value>0;
 
-  const pale="rgba(133,174,232,0.74)";
-  const dark="rgba(38,70,133,0.97)";
-  const outline="rgba(31,58,111,0.98)";
-  const idle="rgba(155,165,180,0.35)";
+  // Polarity convention used only in this diagram:
+  // red = positive field offset, blue = negative field offset.
+  const plusColor="rgba(210,56,70,0.92)";
+  const minusColor="rgba(40,84,165,0.92)";
+  const outline="rgba(35,45,65,0.92)";
+  const idle="rgba(145,155,170,0.42)";
+
+  function fillTriangle(points,color){
+    ctx.fillStyle=color;
+    ctx.beginPath();
+    ctx.moveTo(points[0][0],points[0][1]);
+    for(let i=1;i<points.length;i++) ctx.lineTo(points[i][0],points[i][1]);
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle=outline;
+    ctx.stroke();
+  }
+
+  function signText(text,x,y,fontSize){
+    ctx.fillStyle="#fff";
+    ctx.font=`900 ${fontSize}px sans-serif`;
+    ctx.textAlign="center";
+    ctx.textBaseline="middle";
+    ctx.fillText(text,x,y);
+  }
 
   if(orientation==="vertical"){
     const top=3, bottom=h-3, cy=h/2;
     const centerX=w/2;
-    const minHalf=Math.max(2,w*0.035);
-    const maxHalf=Math.max(minHalf+2,w*0.46);
-    const half=minHalf+(maxHalf-minHalf)*magnitude;
-    const neck=Math.max(1,w*0.018);
+    const neck=Math.max(1.2,w*0.022);
+    const maxHalf=Math.max(neck+2,w*0.46);
+    // The horizontal run of each hypotenuse is exactly proportional to |Gy|.
+    // Therefore the displayed slope magnitude is proportional to the gradient magnitude.
+    const half=neck+(maxHalf-neck)*magnitude;
 
     if(active){
-      // Two congruent right triangles, with the lower one rotated 180 degrees.
-      // Their horizontal spread changes with |Gy|, making the slope itself encode strength.
-      const upperWideSide = positive ? 1 : -1;
-      const lowerWideSide = -upperWideSide;
+      // Positive Gy: upper side is + and lower side is −.
+      // Negative Gy: the polarities are swapped. Geometry is rotated 180° as requested.
+      const upperRight=positive;
+      const upperColor=positive ? plusColor : minusColor;
+      const lowerColor=positive ? minusColor : plusColor;
 
-      const ux0=centerX-upperWideSide*neck;
-      const ux1=centerX+upperWideSide*half;
-      const ucx=centerX+upperWideSide*neck;
-      ctx.fillStyle=pale;
-      ctx.beginPath();
-      ctx.moveTo(ux0,top);
-      ctx.lineTo(ux1,top);
-      ctx.lineTo(ucx,cy);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle=outline;
-      ctx.lineWidth=Math.max(1.2,w*0.022);
-      ctx.stroke();
+      if(upperRight){
+        fillTriangle([[centerX-neck,top],[centerX+half,top],[centerX+neck,cy]],upperColor);
+        fillTriangle([[centerX-neck,cy],[centerX-half,bottom],[centerX+neck,bottom]],lowerColor);
+      }else{
+        fillTriangle([[centerX-half,top],[centerX+neck,top],[centerX-neck,cy]],upperColor);
+        fillTriangle([[centerX+neck,cy],[centerX-neck,bottom],[centerX+half,bottom]],lowerColor);
+      }
 
-      const lcx=centerX+lowerWideSide*neck;
-      const lx0=centerX-lowerWideSide*neck;
-      const lx1=centerX+lowerWideSide*half;
-      ctx.fillStyle=dark;
-      ctx.beginPath();
-      ctx.moveTo(lcx,cy);
-      ctx.lineTo(lx1,bottom);
-      ctx.lineTo(lx0,bottom);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle=outline;
-      ctx.stroke();
+      signText(positive?"+":"−",centerX,top+Math.max(11,w*0.22),Math.max(10,Math.round(w*0.20)));
+      signText(positive?"−":"+",centerX,bottom-Math.max(11,w*0.22),Math.max(10,Math.round(w*0.20)));
     }else{
       ctx.strokeStyle=idle;
       ctx.lineWidth=Math.max(1,w*0.025);
@@ -737,7 +744,7 @@ function drawGradientWedge(ctx,orientation,value,label){
     ctx.save();
     ctx.translate(centerX,h/2);
     ctx.rotate(-Math.PI/2);
-    ctx.fillStyle=active ? "#ffffff" : "#727985";
+    ctx.fillStyle=active ? "rgba(255,255,255,.92)" : "#727985";
     ctx.font=`bold ${Math.max(9,Math.round(w*0.18))}px sans-serif`;
     ctx.textAlign="center";
     ctx.textBaseline="middle";
@@ -746,42 +753,28 @@ function drawGradientWedge(ctx,orientation,value,label){
   }else{
     const left=3, right=w-3, cx=w/2;
     const centerY=h/2;
-    const minHalf=Math.max(2,h*0.035);
-    const maxHalf=Math.max(minHalf+2,h*0.46);
-    const half=minHalf+(maxHalf-minHalf)*magnitude;
-    const neck=Math.max(1,h*0.018);
+    const neck=Math.max(1.2,h*0.022);
+    const maxHalf=Math.max(neck+2,h*0.46);
+    // The vertical run of each hypotenuse is exactly proportional to |Gx|.
+    const half=neck+(maxHalf-neck)*magnitude;
 
     if(active){
-      // Same hourglass pair rotated 90 degrees for Gx.
-      const leftWideSide = positive ? -1 : 1;
-      const rightWideSide = -leftWideSide;
+      // Positive Gx: right side is + and left side is −.
+      // Negative Gx: the polarities are swapped.
+      const leftDown=positive;
+      const leftColor=positive ? minusColor : plusColor;
+      const rightColor=positive ? plusColor : minusColor;
 
-      const ly0=centerY-leftWideSide*neck;
-      const ly1=centerY+leftWideSide*half;
-      const lcy=centerY+leftWideSide*neck;
-      ctx.fillStyle=pale;
-      ctx.beginPath();
-      ctx.moveTo(left,ly0);
-      ctx.lineTo(left,ly1);
-      ctx.lineTo(cx,lcy);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle=outline;
-      ctx.lineWidth=Math.max(1.2,h*0.022);
-      ctx.stroke();
+      if(leftDown){
+        fillTriangle([[left,centerY-neck],[left,centerY+half],[cx,centerY+neck]],leftColor);
+        fillTriangle([[cx,centerY-neck],[right,centerY-half],[right,centerY+neck]],rightColor);
+      }else{
+        fillTriangle([[left,centerY-half],[left,centerY+neck],[cx,centerY-neck]],leftColor);
+        fillTriangle([[cx,centerY+neck],[right,centerY-neck],[right,centerY+half]],rightColor);
+      }
 
-      const rcy=centerY+rightWideSide*neck;
-      const ry0=centerY-rightWideSide*neck;
-      const ry1=centerY+rightWideSide*half;
-      ctx.fillStyle=dark;
-      ctx.beginPath();
-      ctx.moveTo(cx,rcy);
-      ctx.lineTo(right,ry1);
-      ctx.lineTo(right,ry0);
-      ctx.closePath();
-      ctx.fill();
-      ctx.strokeStyle=outline;
-      ctx.stroke();
+      signText(positive?"−":"+",left+Math.max(13,h*0.34),centerY,Math.max(10,Math.round(h*0.28)));
+      signText(positive?"+":"−",right-Math.max(13,h*0.34),centerY,Math.max(10,Math.round(h*0.28)));
     }else{
       ctx.strokeStyle=idle;
       ctx.lineWidth=Math.max(1,h*0.025);
@@ -791,14 +784,13 @@ function drawGradientWedge(ctx,orientation,value,label){
       ctx.stroke();
     }
 
-    ctx.fillStyle=active ? "#ffffff" : "#727985";
+    ctx.fillStyle=active ? "rgba(255,255,255,.92)" : "#727985";
     ctx.font=`bold ${Math.max(9,Math.round(h*0.25))}px sans-serif`;
     ctx.textAlign="center";
     ctx.textBaseline="middle";
     ctx.fillText(label,w/2,centerY);
   }
 }
-
 function drawGradientsAndTimeline(){
   const gyScale = current.phase==="gy" ? current.gy : 0;
   const gxScale = (current.phase==="pre" || current.phase==="readout") ? current.gx : 0;
@@ -1141,7 +1133,7 @@ function render(){
   stageEl.textContent = current.stage;
 
   explainEl.textContent =
-    `左の楔はGy、下の楔はGxです。向きが極性、太さが相対強度を示します。1回の励起はRFから次のRF直前までで、現在位置を下のタイムラインに表示します。`+
+    `左の楔はGy、下の楔はGxです。斜辺の傾きが勾配強度に比例し、赤は＋、青は−の磁場偏位を示します。1回の励起はRFから次のRF直前までで、現在位置を下のタイムラインに表示します。`+
     ` 入力は収集法に依存しないオフレゾナンス Δf としました。`+
     ` Spin warpでは x位置ずれ = Δf × readout時間 = ${formatSigned(shift,2)} pixel。`+
     ` 現在の符号規約では正のΔfは＋x方向へ移動し、FOV外へ出ると反対側へwrapします。`+
