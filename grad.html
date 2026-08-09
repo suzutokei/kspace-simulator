@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Spin-warp k-space Simulator with Gradient-synchronized Cursor</title>
-<!-- grad12: k-space square cursor moves during Gy and Gx pre, synchronized with gradient timing -->
+<title>Spin-warp k-space Simulator with Fixed Pre-readout Timing</title>
+<!-- grad13: fixed RF-to-readout timing; selected real-space proton vector follows gradient-induced phase -->
 <style>
 :root{
   --bg:#f5f5f5; --card:#fff; --text:#111; --muted:#666;
@@ -320,6 +320,7 @@ button.primary{background:#111;color:#fff}
     <div>x位置ずれ<b id="shiftRead">0 pixel</b></div>
     <div>y位置ずれ<b id="yShiftRead">0 pixel</b></div>
     <div>見かけの位置<b id="apparentRead">(1,2)</b></div>
+    <div>時刻<b id="timeRead">0</b></div>
     <div>段階<b id="stage">待機</b></div>
   </div>
 
@@ -377,6 +378,7 @@ const readoutReadEl = document.getElementById("readoutRead");
 const shiftReadEl = document.getElementById("shiftRead");
 const yShiftReadEl = document.getElementById("yShiftRead");
 const apparentReadEl = document.getElementById("apparentRead");
+const timeReadEl = document.getElementById("timeRead");
 const stageEl = document.getElementById("stage");
 const explainEl = document.getElementById("explain");
 const testboxEl = document.getElementById("testbox");
@@ -511,51 +513,67 @@ function buildSequence(){
   const xs = centeredValues();
   const kys = kyValues();
 
+  // 教材上の共通時計（任意単位）。
+  // すべての励起でRF→readout開始まで同じ時間にする。
+  const DT = 1.0;
+  const RF_DURATION = DT;
+  const GY_STEPS = Math.max(4, N/2);
+  const PRE_STEPS = Math.abs(kMin());
+  const READ_STEPS = xs.length;
+
+  const GY_DURATION = GY_STEPS * DT;
+  const PRE_DURATION = PRE_STEPS * DT;
+  const READ_DURATION = READ_STEPS * DT;
+
   kys.forEach((targetKy,index) => {
     const excitation = index + 1;
+    let t = 0;
 
-    // RF直後のk空間位置は原点。□を現在位置として表示する。
     out.push({
       stage:`RF励起：第${excitation}励起`,phase:"rf",excitation,
-      kx:0,ky:0,targetKy,adc:false,gx:0,gy:0
+      kx:0,ky:0,targetKy,adc:false,gx:0,gy:0,
+      time:t
     });
+    t += RF_DURATION;
 
-    // Gy印加中は、勾配の極性に対応して原点から目的kyへ1マスずつ移動する。
-    // Gyの表示強度は目的位置までの総移動量 Δky に対応し、移動中は一定とする。
-    const deltaKy = targetKy;
-    if(deltaKy===0){
+    // Gy：時間一定、振幅だけtargetKyに比例。
+    for(let s=1; s<=GY_STEPS; s++){
+      const f=s/GY_STEPS;
+      const cursorKy=targetKy*f;
       out.push({
-        stage:"Gy：Δky=0（移動なし）",phase:"gy",excitation,
-        kx:0,ky:0,targetKy,adc:false,gx:0,gy:0
+        stage:`Gy：k=(0,${formatNumber(cursorKy,2)})`,phase:"gy",excitation,
+        kx:0,ky:cursorKy,targetKy,adc:false,gx:0,gy:targetKy,
+        time:t
       });
-    }else{
-      const stepY = Math.sign(deltaKy);
-      for(let cursorKy=stepY; stepY>0 ? cursorKy<=targetKy : cursorKy>=targetKy; cursorKy+=stepY){
-        out.push({
-          stage:`Gy：k=(0,${cursorKy})へ移動`,phase:"gy",excitation,
-          kx:0,ky:cursorKy,targetKy,adc:false,gx:0,gy:deltaKy
-        });
-      }
+      t += DT;
     }
 
-    // 負のGx prephaserで、(0,targetKy)から読出し開始点(kxmin,targetKy)へ左向きに移動する。
-    for(let cursorKx=-1; cursorKx>=kMin(); cursorKx--){
+    // Gx pre：全励起で同じ時間。
+    for(let s=1; s<=PRE_STEPS; s++){
+      const f=s/PRE_STEPS;
+      const cursorKx=kMin()*f;
       out.push({
-        stage:`Gx pre：k=(${cursorKx},${targetKy})へ移動`,phase:"pre",excitation,
-        kx:cursorKx,ky:targetKy,targetKy,adc:false,gx:-1,gy:0
+        stage:`Gx pre：k=(${formatNumber(cursorKx,2)},${targetKy})`,phase:"pre",excitation,
+        kx:cursorKx,ky:targetKy,targetKy,adc:false,gx:-1,gy:0,
+        time:t
       });
+      t += DT;
     }
 
-    // 正のGx readoutで左端から右端へ移動し、各位置の位相ベクトルを取得する。
-    xs.forEach(kx => {
+    // Gx readout：各サンプルの取得時刻を明示。
+    xs.forEach((kx) => {
       out.push({
         stage:"Gx readout：信号収集",phase:"readout",excitation,
-        kx,ky:targetKy,targetKy,adc:true,gx:1,gy:0
+        kx,ky:targetKy,targetKy,adc:true,gx:1,gy:0,
+        time:t
       });
+      t += DT;
     });
+
     out.push({
       stage:`第${excitation}励起終了`,phase:"wait",excitation,
-      kx:null,ky:null,targetKy,adc:false,gx:0,gy:0
+      kx:null,ky:null,targetKy,adc:false,gx:0,gy:0,
+      time:t
     });
   });
 
@@ -860,6 +878,33 @@ function drawGradientsAndTimeline(){
   }).join("");
 }
 
+function currentEventTime(){
+  return Number(current.time ?? 0);
+}
+
+function offResonancePhaseAtTime(time){
+  // Δf [Hz] を教材上の時間単位へ変換する。
+  // ここではreadoutMs()と、1 readout sample = 1 time step を対応させる。
+  // 1 step = readoutMs()/N ms とみなす。
+  const secondsPerStep=(readoutMs()/N)/1000;
+  return 2*Math.PI*offResonanceHz()*time*secondsPerStep;
+}
+
+function realSpacePhaseAtEvent(event,p,q){
+  if(event.kx===null || event.ky===null) return 0;
+  const gradPhase=phaseIdealFor(p,q,event.kx,event.ky);
+  return gradPhase + offResonancePhaseAtTime(Number(event.time ?? 0));
+}
+
+function selectedProtonGradientPhase(){
+  // 実空間の選択プロトンとk空間取得ベクトルは同じ共通時計で計算する。
+  // phi(t) = -2π(x kx(t)+y ky(t))/N + 2πΔf t
+  if(current.kx===null || current.ky===null) return 0;
+  const p=clampCentered(pEl.value);
+  const q=clampCentered(qEl.value);
+  return realSpacePhaseAtEvent(current,p,q);
+}
+
 function drawReal(){
   clearCanvas(rctx);
   const g = drawGrid(rctx);
@@ -894,6 +939,16 @@ function drawReal(){
   rctx.arc(trueCx,trueCy,Math.max(5,g.cell*0.16),0,Math.PI*2);
   rctx.fill();
 
+  // 選択された実空間プロトンの「勾配による位相」をリアルタイム表示。
+  // RF直後は→。Gy/Gx pre/Gx readoutに同期して回転する。
+  const protonPhase=selectedProtonGradientPhase();
+  drawArrow(
+    rctx,trueCx,trueCy,protonPhase,
+    Math.max(13,g.cell*0.34),
+    "#24427d",
+    N===16 ? 1.8 : 2.5
+  );
+
   // 連続的な見かけ位置
   drawPeriodicApparentMarker(rctx,g,apparentX,apparentY);
 
@@ -911,7 +966,7 @@ function drawReal(){
   rctx.textBaseline = "middle";
   rctx.fillStyle = "#24427d";
   rctx.textAlign = "left";
-  rctx.fillText("● 真の位置",g.left,g.top+g.size+55);
+  rctx.fillText("●→ 選択プロトン（矢印＝勾配由来位相）",g.left,g.top+g.size+55);
   rctx.fillStyle = "#d46a16";
   rctx.textAlign = "right";
   rctx.fillText("○ 見かけの位置",g.left+g.size,g.top+g.size+55);
@@ -975,9 +1030,13 @@ function storeVector(event){
   const p = clampCentered(pEl.value);
   const q = clampCentered(qEl.value);
 
+  const ideal=phaseIdealFor(p,q,event.kx,event.ky);
+  const sampled=realSpacePhaseAtEvent(event,p,q);
+
   vectors.set(`${event.kx},${event.ky}`,{
-    ideal:phaseIdealFor(p,q,event.kx,event.ky),
-    actual:phaseActualFor(p,q,event.kx,event.ky)
+    ideal,
+    actual:sampled,
+    sampleTime:Number(event.time ?? 0)
   });
 }
 
@@ -985,11 +1044,19 @@ function fillAll(){
   stop();
   vectors.clear();
 
-  centeredValues().forEach(ky => {
-    centeredValues().forEach(kx => storeVector({kx,ky}));
+  const byKey=new Map();
+  sequence.forEach(event=>{
+    if(event.adc) byKey.set(`${event.kx},${event.ky}`,event);
   });
 
-  current = {stage:"全マス表示",phase:"idle",excitation:0,kx:null,ky:null,targetKy:null,adc:false,gx:0,gy:0};
+  centeredValues().forEach(ky => {
+    centeredValues().forEach(kx => {
+      const event=byKey.get(`${kx},${ky}`);
+      if(event) storeVector(event);
+    });
+  });
+
+  current = {stage:"全マス表示",phase:"wait",kx:null,ky:null,adc:false,gx:0,gy:0,time:0};
   seqIndex = sequence.length;
   render();
 }
@@ -1108,21 +1175,72 @@ function runSelfTests(){
     errors.push("FOV wrap異常");
   }
 
-  // k空間カーソルの移動方向を検算する。
+  // k空間カーソルとRF→readout開始までの時間を検算する。
   buildSequence();
-  const firstExc = sequence.filter(e=>e.excitation===1);
+  const excitationGroups=kyValues().map((_,i)=>sequence.filter(e=>e.excitation===i+1));
+  const preReadoutCounts=excitationGroups.map(group=>{
+    const firstRead=group.findIndex(e=>e.phase==="readout");
+    return firstRead;
+  });
+  if(!preReadoutCounts.every(v=>v===preReadoutCounts[0])){
+    errors.push("RF→readout開始時間がkyで変動");
+  }
+
+  const firstExc = excitationGroups[0];
   const gyEvents = firstExc.filter(e=>e.phase==="gy");
   const preEvents = firstExc.filter(e=>e.phase==="pre");
   const readEvents = firstExc.filter(e=>e.phase==="readout");
   const targetKy = kyValues()[0];
-  if(gyEvents.length && gyEvents.at(-1).ky!==targetKy){
+
+  if(gyEvents.length && Math.abs(gyEvents.at(-1).ky-targetKy)>1e-12){
     errors.push("Gyカーソル終点異常");
   }
-  if(preEvents.length && !(preEvents[0].kx===-1 && preEvents.at(-1).kx===kMin())){
+  if(preEvents.length && !(preEvents[0].kx<0 && Math.abs(preEvents.at(-1).kx-kMin())<1e-12)){
     errors.push("Gx pre移動方向異常");
   }
   if(readEvents.length && !(readEvents[0].kx===kMin() && readEvents.at(-1).kx===kMax())){
     errors.push("Gx readout移動方向異常");
+  }
+
+  // RF直後の選択プロトン位相は全座標で0（→）。
+  for(let p=-4;p<=3;p++){
+    for(let q=-4;q<=3;q++){
+      if(!angleClose(phaseIdealFor(p,q,0,0),0)){
+        errors.push("RF直後プロトン位相異常");
+        break;
+      }
+    }
+  }
+
+  // 実空間ベクトルとk空間取得ベクトルが、全readoutイベントで同期しているか直接検算。
+  dfEl.value = "125";
+  bandwidthEl.value = "standard";
+  buildSequence();
+  for(const event of sequence.filter(e=>e.adc)){
+    for(const p of [-4,-1,0,1,3]){
+      for(const q of [-4,-2,0,2,3]){
+        const realPhase=realSpacePhaseAtEvent(event,p,q);
+        const sampledPhase=
+          phaseIdealFor(p,q,event.kx,event.ky)
+          + offResonancePhaseAtTime(event.time);
+        if(!angleClose(realPhase,sampledPhase)){
+          errors.push(`実空間/k空間位相同期異常：(${p},${q}), k=(${event.kx},${event.ky})`);
+          break;
+        }
+      }
+    }
+    if(errors.length>20) break;
+  }
+
+  // Δf=0でも当然同期。
+  dfEl.value = "0";
+  buildSequence();
+  for(const event of sequence.filter(e=>e.adc).slice(0,Math.min(32,sequence.length))){
+    const p=1,q=2;
+    if(!angleClose(realSpacePhaseAtEvent(event,p,q),phaseIdealFor(p,q,event.kx,event.ky))){
+      errors.push("Δf=0同期異常");
+      break;
+    }
   }
 
   N = oldN;
@@ -1134,7 +1252,7 @@ function runSelfTests(){
   if(errors.length===0){
     testboxEl.className = "testbox";
     testboxEl.textContent =
-      "内部検算：OK｜座標、位相ベクトル、Gy縦移動、Gx pre左移動、readout右移動、x位置ずれ、y位置ずれ0、FOV wrapを確認。";
+      "内部検算：OK｜RF→readout開始時間一定、共通時計、実空間/k空間位相同期、Gy/Gxカーソル移動、位置ずれを確認。";
   }else{
     testboxEl.className = "testbox error";
     testboxEl.textContent = `内部検算：NG｜${errors.slice(0,4).join("／")}`;
@@ -1184,10 +1302,11 @@ function render(){
   yShiftReadEl.textContent = `${formatSigned(yShift,2)} pixel`;
   apparentReadEl.textContent =
     `(${formatNumber(apparentX,2)},${formatNumber(apparentY,2)})`;
+  timeReadEl.textContent = formatNumber(currentEventTime(),2);
   stageEl.textContent = current.stage;
 
   explainEl.textContent =
-    `左の楔はGy、下の楔はGxです。斜辺の傾きが勾配強度に比例し、赤は＋、青は−の磁場偏位を示します。1回の励起はRFから次のRF直前までで、□は現在のk空間位置です。RFでは原点、Gyでは縦方向、Gx preでは左方向へ移動し、Gx readout中は右へ進みながら位相ベクトルを書き込みます。`+
+    `左の楔はGy、下の楔はGxです。斜辺の傾きが勾配強度に比例し、赤は＋、青は−の磁場偏位を示します。1回の励起はRFから次のRF直前までです。Gyの印加時間は全kyで一定で、振幅だけを変えて目的kyを選びます。そのためRFからreadout左端到達までの時間は全行で一定です。□は現在のk空間位置で、RFでは原点、Gyでは縦方向、Gx preでは左方向、Gx readoutでは右へ移動します。実空間の青い矢印とk空間に書き込まれるベクトルは、同じ共通時計tと同じ位相式で計算します。オフレゾナンスありでは2πΔf tも両者へ同じように加えます。`+
     ` 入力は収集法に依存しないオフレゾナンス Δf としました。`+
     ` Spin warpでは x位置ずれ = Δf × readout時間 = ${formatSigned(shift,2)} pixel。`+
     ` 現在の符号規約では正のΔfは＋x方向へ移動し、FOV外へ出ると反対側へwrapします。`+
