@@ -681,6 +681,12 @@ function drawArrow(ctx,cx,cy,angle,length,color,width=2){
   ctx.fill();
 }
 
+function drawOutlinedArrow(ctx,cx,cy,angle,length,color,width=3){
+  // 白い縁取りを先に描き、その上に本体を重ねる。
+  drawArrow(ctx,cx,cy,angle,length,"rgba(255,255,255,0.98)",width+3.2);
+  drawArrow(ctx,cx,cy,angle,length,color,width);
+}
+
 function reconstructionData(){
   const p = clampCentered(pEl.value);
   const q = clampCentered(qEl.value);
@@ -967,20 +973,32 @@ function drawReal(){
   // 真の位置
   const trueCx = g.left+(p-kMin()+0.5)*g.cell;
   const trueCy = g.top+(kMax()-q+0.5)*g.cell;
+  const trueCellX = g.left+(p-kMin())*g.cell;
+  const trueCellY = g.top+(kMax()-q)*g.cell;
+
+  // 選択中の1マスをごく薄く強調。
+  rctx.fillStyle = "rgba(36,66,125,0.08)";
+  rctx.fillRect(trueCellX+1,trueCellY+1,g.cell-2,g.cell-2);
+
+  // 中心点は少し大きく、白い縁を付ける。
+  rctx.fillStyle = "#fff";
+  rctx.beginPath();
+  rctx.arc(trueCx,trueCy,Math.max(6.5,g.cell*0.19),0,Math.PI*2);
+  rctx.fill();
 
   rctx.fillStyle = "#24427d";
   rctx.beginPath();
-  rctx.arc(trueCx,trueCy,Math.max(5,g.cell*0.16),0,Math.PI*2);
+  rctx.arc(trueCx,trueCy,Math.max(5.2,g.cell*0.145),0,Math.PI*2);
   rctx.fill();
 
-  // 選択された実空間プロトンの「勾配による位相」をリアルタイム表示。
-  // RF直後は→。Gy/Gx pre/Gx readoutに同期して回転する。
+  // 選択された実空間プロトンの位相ベクトル。
+  // 白縁＋太線＋長めにして、8×8/16×16とも視認性を上げる。
   const protonPhase=selectedProtonGradientPhase();
-  drawArrow(
+  drawOutlinedArrow(
     rctx,trueCx,trueCy,protonPhase,
-    Math.max(13,g.cell*0.34),
+    Math.max(18,g.cell*0.48),
     "#24427d",
-    N===16 ? 1.8 : 2.5
+    N===16 ? 2.7 : 3.4
   );
 
   // 連続的な見かけ位置
@@ -1000,7 +1018,7 @@ function drawReal(){
   rctx.textBaseline = "middle";
   rctx.fillStyle = "#24427d";
   rctx.textAlign = "left";
-  rctx.fillText("●→ 選択プロトン（矢印＝勾配由来位相）",g.left,g.top+g.size+55);
+  rctx.fillText("●→ 選択プロトン",g.left,g.top+g.size+55);
   rctx.fillStyle = "#d46a16";
   rctx.textAlign = "right";
   rctx.fillText("○ 見かけの位置",g.left+g.size,g.top+g.size+55);
@@ -1047,14 +1065,31 @@ function drawKspace(){
     const cx = g.left+(current.kx-kMin()+0.5)*g.cell;
     const cy = g.top+(kMax()-current.ky+0.5)*g.cell;
 
+    // 現在位置の□を少し太く。
     kctx.strokeStyle = "#d63849";
-    kctx.lineWidth = 2;
+    kctx.lineWidth = N===16 ? 2.3 : 2.8;
     kctx.strokeRect(
       cx-g.cell*0.43,
       cy-g.cell*0.43,
       g.cell*0.86,
       g.cell*0.86
     );
+
+    // readout中だけ、今この瞬間に書き込まれるベクトルを一時強調。
+    if(current.adc){
+      const currentPhase=selectedProtonGradientPhase();
+      drawOutlinedArrow(
+        kctx,cx,cy,currentPhase,
+        Math.max(10,g.cell*0.39),
+        "#24427d",
+        N===16 ? 2.2 : 3.0
+      );
+
+      kctx.fillStyle="#24427d";
+      kctx.beginPath();
+      kctx.arc(cx,cy,N===16 ? 1.8 : 2.5,0,Math.PI*2);
+      kctx.fill();
+    }
   }
 
 
