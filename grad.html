@@ -56,8 +56,8 @@ body.offres-on #kspace{
 .card,.controls{background:#fff;border:1px solid #ddd;border-radius:11px}
 .card{padding:4px}
 canvas{display:block;width:100%;height:auto;touch-action:none}
-.controls{margin-top:8px;padding:9px}
-.row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:7px}
+.controls{margin-top:6px;padding:8px}
+.row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-bottom:7px}
 label{font-size:11px;font-weight:700}
 .value{display:block;margin-top:3px;font-weight:600;color:#333}
 input,select,button{
@@ -174,11 +174,16 @@ button.primary{background:#111;color:#fff}
 @media(max-width:680px){
   h1{font-size:15px}
   .panel h2{font-size:15px}
-  .row{grid-template-columns:repeat(2,1fr)}
+  .row{grid-template-columns:repeat(2,minmax(0,1fr))}
   .readout{grid-template-columns:repeat(4,1fr)}
   .readout div{font-size:9px}
   .readout b{font-size:11px}
 }
+
+.compact-actions button{min-height:42px}
+.check-label{display:block}
+.check-label button{margin-top:3px}
+
 </style>
 </head>
 <body>
@@ -193,7 +198,7 @@ button.primary{background:#111;color:#fff}
 
 <main class="two">
   <section class="panel">
-    <h2>実空間・再構成位置</h2>
+    <h2>実空間</h2>
     <div id="realCard" class="card">
       <div class="real-with-gradients">
         <div class="real-main"><canvas id="real" width="500" height="520"></canvas></div>
@@ -204,7 +209,7 @@ button.primary{background:#111;color:#fff}
     </div>
   </section>
   <section class="panel">
-    <h2>k空間の位相ベクトル</h2>
+    <h2>k空間</h2>
     <div class="card"><canvas id="kspace" width="500" height="520"></canvas></div>
   </section>
   <div class="tr-panel">
@@ -226,14 +231,17 @@ button.primary{background:#111;color:#fff}
 </main>
 
 <section class="controls">
-  <div class="row">
-    <label>マトリクス
-      <select id="matrix">
-        <option value="8">8 × 8</option>
-        <option value="16">16 × 16</option>
-      </select>
-    </label>
+  <div class="row compact-actions">
+    <button id="play" class="primary">実行</button>
+    <button id="step">1段階進める</button>
+  </div>
 
+  <div class="row compact-actions">
+    <button id="fill">全マス表示</button>
+    <button id="reset">リセット</button>
+  </div>
+
+  <div class="row">
     <label>実空間 x座標
       <span class="coord-stepper">
         <button id="pMinus" type="button" aria-label="x座標を左へ1移動">←</button>
@@ -248,6 +256,35 @@ button.primary{background:#111;color:#fff}
         <input id="q" type="number" min="-4" max="3" value="2" readonly>
         <button id="qPlus" type="button" aria-label="y座標を上へ1移動">↑</button>
       </span>
+    </label>
+  </div>
+
+  <div class="row">
+    <label>オフレゾナンス
+      <span class="offres-switch">
+        <button id="offresOff" type="button" class="active-off">なし</button>
+        <button id="offresOn" type="button">あり</button>
+      </span>
+    </label>
+
+    <label id="dfSetting" class="df-setting disabled">オフレゾナンスの程度
+      <span class="coord-stepper">
+        <button id="dfMinus" type="button" aria-label="オフレゾナンス周波数を下げる" disabled>−</button>
+        <span class="number-with-unit">
+          <input id="df" type="number" min="-250" max="250" step="125" value="125" readonly disabled>
+          <span class="unit">Hz</span>
+        </span>
+        <button id="dfPlus" type="button" aria-label="オフレゾナンス周波数を上げる" disabled>＋</button>
+      </span>
+    </label>
+  </div>
+
+  <div class="row">
+    <label>マトリクス
+      <select id="matrix">
+        <option value="8">8 × 8</option>
+        <option value="16">16 × 16</option>
+      </select>
     </label>
 
     <label>収集方法
@@ -271,25 +308,9 @@ button.primary{background:#111;color:#fff}
         <option value="standard">基準受信BW（readout 16 ms）</option>
       </select>
     </label>
+  </div>
 
-    <label>オフレゾナンス
-      <span class="offres-switch">
-        <button id="offresOff" type="button" class="active-off">なし</button>
-        <button id="offresOn" type="button">あり</button>
-      </span>
-    </label>
-
-    <label id="dfSetting" class="df-setting disabled">オフレゾナンスの程度
-      <span class="coord-stepper">
-        <button id="dfMinus" type="button" aria-label="オフレゾナンス周波数を下げる" disabled>−</button>
-        <span class="number-with-unit">
-          <input id="df" type="number" min="-250" max="250" step="125" value="125" readonly disabled>
-          <span class="unit">Hz</span>
-        </span>
-        <button id="dfPlus" type="button" aria-label="オフレゾナンス周波数を上げる" disabled>＋</button>
-      </span>
-    </label>
-
+  <div class="row">
     <label>再生速度
       <span class="coord-stepper">
         <button id="speedMinus" type="button" aria-label="再生速度を下げる">−</button>
@@ -297,22 +318,13 @@ button.primary{background:#111;color:#fff}
         <button id="speedPlus" type="button" aria-label="再生速度を上げる">＋</button>
       </span>
     </label>
+
+    <label class="check-label">検算詳細
+      <button id="showCheck" type="button">表示 / 非表示</button>
+    </label>
   </div>
 
-  <div class="row">
-    <button id="play" class="primary">実行</button>
-    <button id="step">1段階進める</button>
-    <button id="fill">全マス表示</button>
-    <button id="reset">リセット</button>
-  </div>
-
-  <div class="row">
-    <button id="showCheck">検算詳細</button>
-  </div>
-
-
-
-  <div class="readout">
+<div class="readout">
     <div>真の位置<b id="xy">(1,2)</b></div>
     <div>理想周期<b id="cycles">kx 1 / ky 2</b></div>
     <div>Δf<b id="dfRead">0 Hz</b></div>
@@ -320,7 +332,7 @@ button.primary{background:#111;color:#fff}
     <div>x位置ずれ<b id="shiftRead">0 pixel</b></div>
     <div>y位置ずれ<b id="yShiftRead">0 pixel</b></div>
     <div>見かけの位置<b id="apparentRead">(1,2)</b></div>
-    <div>時刻<b id="timeRead">0</b></div>
+    <div>RF後時刻<b id="timeRead">0 ms</b></div>
     <div>段階<b id="stage">待機</b></div>
   </div>
 
@@ -337,6 +349,12 @@ const READOUT_MS = {
   double: 8,
   standard: 16
 };
+
+// 教材用の固定タイミング（RF直後を t=0 ms とする）。
+// Gy / Gx pre の時間は受信BWに依存させず、全kyで一定。
+// readout時間だけが受信BWで変化する。
+const GY_DURATION_MS = 2.0;
+const PRE_DURATION_MS = 2.0;
 
 const real = document.getElementById("real");
 const kspace = document.getElementById("kspace");
@@ -438,7 +456,14 @@ function refreshStoredVectorPhases(){
   vectors.forEach((rec,key) => {
     const [kx,ky] = key.split(",").map(Number);
     rec.ideal = phaseIdealFor(p,q,kx,ky);
-    rec.actual = phaseActualFor(p,q,kx,ky);
+
+    // 取得済みベクトルは、実際にその点を取得した時刻を保持したまま再計算する。
+    // これによりオフレゾナンスON/OFFや座標変更でも時間同期が崩れない。
+    const event = {
+      kx, ky,
+      timeMs:Number(rec.sampleTimeMs ?? 0)
+    };
+    rec.actual = realSpacePhaseAtEvent(event,p,q);
   });
 }
 
@@ -484,6 +509,9 @@ function phaseIdealFor(p,q,kx,ky){
 }
 
 function phaseActualFor(p,q,kx,ky){
+  // 再構成像の位置ずれを表す解析式。
+  // readout開始前に蓄積したオフレゾナンス位相は全k点に共通な定数位相なので、
+  // magnitude画像には影響せず、ここでは省略している。
   const shift = offResonanceShiftPixels();
   return -2*Math.PI*((p+shift)*kx + q*ky)/N;
 }
@@ -513,39 +541,29 @@ function buildSequence(){
   const xs = centeredValues();
   const kys = kyValues();
 
-  // 教材上の共通時計（任意単位）。
-  // すべての励起でRF→readout開始まで同じ時間にする。
-  const DT = 1.0;
-  const RF_DURATION = DT;
   const GY_STEPS = Math.max(4, N/2);
-  const PRE_STEPS = Math.abs(kMin());
-  const READ_STEPS = xs.length;
-
-  const GY_DURATION = GY_STEPS * DT;
-  const PRE_DURATION = PRE_STEPS * DT;
-  const READ_DURATION = READ_STEPS * DT;
+  const PRE_STEPS = Math.max(4, N/2);
+  const READ_DT_MS = readoutMs()/N;
 
   kys.forEach((targetKy,index) => {
     const excitation = index + 1;
-    let t = 0;
 
+    // RF直後を各励起の t=0 ms とする。
     out.push({
       stage:`RF励起：第${excitation}励起`,phase:"rf",excitation,
       kx:0,ky:0,targetKy,adc:false,gx:0,gy:0,
-      time:t
+      timeMs:0
     });
-    t += RF_DURATION;
 
-    // Gy：時間一定、振幅だけtargetKyに比例。
+    // Gy：印加時間は全kyで一定。振幅だけtargetKyに比例。
     for(let s=1; s<=GY_STEPS; s++){
       const f=s/GY_STEPS;
       const cursorKy=targetKy*f;
       out.push({
         stage:`Gy：k=(0,${formatNumber(cursorKy,2)})`,phase:"gy",excitation,
         kx:0,ky:cursorKy,targetKy,adc:false,gx:0,gy:targetKy,
-        time:t
+        timeMs:GY_DURATION_MS*f
       });
-      t += DT;
     }
 
     // Gx pre：全励起で同じ時間。
@@ -555,25 +573,24 @@ function buildSequence(){
       out.push({
         stage:`Gx pre：k=(${formatNumber(cursorKx,2)},${targetKy})`,phase:"pre",excitation,
         kx:cursorKx,ky:targetKy,targetKy,adc:false,gx:-1,gy:0,
-        time:t
+        timeMs:GY_DURATION_MS + PRE_DURATION_MS*f
       });
-      t += DT;
     }
 
-    // Gx readout：各サンプルの取得時刻を明示。
-    xs.forEach((kx) => {
+    // Gx readout：左端から右端へ。各点の実取得時刻を保持する。
+    const readoutStartMs = GY_DURATION_MS + PRE_DURATION_MS;
+    xs.forEach((kx,i) => {
       out.push({
         stage:"Gx readout：信号収集",phase:"readout",excitation,
         kx,ky:targetKy,targetKy,adc:true,gx:1,gy:0,
-        time:t
+        timeMs:readoutStartMs + i*READ_DT_MS
       });
-      t += DT;
     });
 
     out.push({
       stage:`第${excitation}励起終了`,phase:"wait",excitation,
       kx:null,ky:null,targetKy,adc:false,gx:0,gy:0,
-      time:t
+      timeMs:readoutStartMs + readoutMs()
     });
   });
 
@@ -879,26 +896,43 @@ function drawGradientsAndTimeline(){
 }
 
 function currentEventTime(){
-  return Number(current.time ?? 0);
+  return Number(current.timeMs ?? 0);
 }
 
-function offResonancePhaseAtTime(time){
-  // Δf [Hz] を教材上の時間単位へ変換する。
-  // ここではreadoutMs()と、1 readout sample = 1 time step を対応させる。
-  // 1 step = readoutMs()/N ms とみなす。
-  const secondsPerStep=(readoutMs()/N)/1000;
-  return 2*Math.PI*offResonanceHz()*time*secondsPerStep;
+function offResonancePhaseAtTimeMs(timeMs){
+  // 信号位相の規約を phaseIdealFor と統一する。
+  // 正のΔfは時間とともに負方向へ位相が進む：
+  //   phi_off = -2π Δf t
+  return -2*Math.PI*offResonanceHz()*(Number(timeMs)/1000);
 }
 
 function realSpacePhaseAtEvent(event,p,q){
   if(event.kx===null || event.ky===null) return 0;
   const gradPhase=phaseIdealFor(p,q,event.kx,event.ky);
-  return gradPhase + offResonancePhaseAtTime(Number(event.time ?? 0));
+  return gradPhase + offResonancePhaseAtTimeMs(Number(event.timeMs ?? 0));
+}
+
+function independentSamplePhase(event,p,q){
+  // 独立検算用：既存の位相関数を呼ばず、定義式を直接展開して計算する。
+  if(event.kx===null || event.ky===null) return 0;
+  const spatial =
+    -2*Math.PI*((p*event.kx + q*event.ky)/N);
+  const off =
+    -2*Math.PI*offResonanceHz()*(Number(event.timeMs ?? 0)/1000);
+  return spatial + off;
+}
+
+function independentReadoutShiftPhase(kx){
+  // 画像シフト式から独立に予測されるreadout方向の追加位相。
+  // Δx_pixel = Δf * Treadout より
+  // phi_shift(kx) = -2π * Δx_pixel * kx / N
+  const shift = offResonanceHz()*readoutMs()/1000;
+  return -2*Math.PI*shift*kx/N;
 }
 
 function selectedProtonGradientPhase(){
   // 実空間の選択プロトンとk空間取得ベクトルは同じ共通時計で計算する。
-  // phi(t) = -2π(x kx(t)+y ky(t))/N + 2πΔf t
+  // phi(t) = -2π[(x kx(t)+y ky(t))/N + Δf t]
   if(current.kx===null || current.ky===null) return 0;
   const p=clampCentered(pEl.value);
   const q=clampCentered(qEl.value);
@@ -1036,7 +1070,7 @@ function storeVector(event){
   vectors.set(`${event.kx},${event.ky}`,{
     ideal,
     actual:sampled,
-    sampleTime:Number(event.time ?? 0)
+    sampleTimeMs:Number(event.timeMs ?? 0)
   });
 }
 
@@ -1056,7 +1090,7 @@ function fillAll(){
     });
   });
 
-  current = {stage:"全マス表示",phase:"wait",kx:null,ky:null,adc:false,gx:0,gy:0,time:0};
+  current = {stage:"全マス表示",phase:"wait",kx:null,ky:null,adc:false,gx:0,gy:0,timeMs:0};
   seqIndex = sequence.length;
   render();
 }
@@ -1222,7 +1256,7 @@ function runSelfTests(){
         const realPhase=realSpacePhaseAtEvent(event,p,q);
         const sampledPhase=
           phaseIdealFor(p,q,event.kx,event.ky)
-          + offResonancePhaseAtTime(event.time);
+          + offResonancePhaseAtTimeMs(event.timeMs);
         if(!angleClose(realPhase,sampledPhase)){
           errors.push(`実空間/k空間位相同期異常：(${p},${q}), k=(${event.kx},${event.ky})`);
           break;
@@ -1243,6 +1277,72 @@ function runSelfTests(){
     }
   }
 
+  // 正のΔfでreadout中の隣接kxサンプル位相が負方向へ進むことを確認。
+  offResonanceEnabled = true;
+  dfEl.value = "125";
+  bandwidthEl.value = "standard";
+  buildSequence();
+  const firstReadLine = sequence.filter(e=>e.excitation===1 && e.phase==="readout");
+  if(firstReadLine.length>=2){
+    const dphi =
+      offResonancePhaseAtTimeMs(firstReadLine[1].timeMs)
+      - offResonancePhaseAtTimeMs(firstReadLine[0].timeMs);
+    if(!(dphi < 0)){
+      errors.push("正Δfの時間位相符号異常");
+    }
+  }
+
+  // 解析的な位置ずれと時間領域の位相傾きが一致することを確認。
+  const expectedShift = offResonanceHz()*readoutMs()/1000;
+  const phasePerK = -2*Math.PI*expectedShift/N;
+  if(firstReadLine.length>=2){
+    const measured =
+      offResonancePhaseAtTimeMs(firstReadLine[1].timeMs)
+      - offResonancePhaseAtTimeMs(firstReadLine[0].timeMs);
+    if(Math.abs(measured-phasePerK)>1e-10){
+      errors.push("時間位相と位置ずれ式の不一致");
+    }
+  }
+
+  // 独立検算1：
+  // 実空間表示用の位相と、定義式を直接展開した独立計算が一致するか。
+  for(const event of sequence.filter(e=>e.adc)){
+    for(const p of [-4,-1,0,1,3]){
+      for(const q of [-4,-2,0,2,3]){
+        const appPhase = realSpacePhaseAtEvent(event,p,q);
+        const refPhase = independentSamplePhase(event,p,q);
+        if(!angleClose(appPhase,refPhase)){
+          errors.push(`独立位相検算NG：(${p},${q}), k=(${event.kx},${event.ky})`);
+          break;
+        }
+      }
+    }
+    if(errors.length>20) break;
+  }
+
+  // 独立検算2：
+  // 同一ky行内では、時間領域で蓄積するoff-resonance位相差が、
+  // 画像シフト式から得られるkx linear phaseと一致するか。
+  if(firstReadLine.length>=2){
+    const t0 = firstReadLine[0].timeMs;
+    for(const event of firstReadLine){
+      const measuredRelative =
+        -2*Math.PI*offResonanceHz()*((event.timeMs-t0)/1000);
+      const expectedRelative =
+        independentReadoutShiftPhase(event.kx-firstReadLine[0].kx);
+      if(!angleClose(measuredRelative,expectedRelative)){
+        errors.push(`独立shift検算NG：kx=${event.kx}`);
+        break;
+      }
+    }
+  }
+
+  // 独立検算3：
+  // kx=0では位置ずれ由来のlinear phaseは必ず0。
+  if(!angleClose(independentReadoutShiftPhase(0),0)){
+    errors.push("kx=0 shift phase異常");
+  }
+
   N = oldN;
   dfEl.value = oldDf;
   bandwidthEl.value = oldBw;
@@ -1252,7 +1352,7 @@ function runSelfTests(){
   if(errors.length===0){
     testboxEl.className = "testbox";
     testboxEl.textContent =
-      "内部検算：OK｜RF→readout開始時間一定、共通時計、実空間/k空間位相同期、Gy/Gxカーソル移動、位置ずれを確認。";
+      "内部検算：OK｜RF→readout開始時間一定、実時間(ms)、実空間/k空間同期、独立位相計算、オフレゾナンス符号、位置ずれ式を確認。";
   }else{
     testboxEl.className = "testbox error";
     testboxEl.textContent = `内部検算：NG｜${errors.slice(0,4).join("／")}`;
@@ -1302,11 +1402,11 @@ function render(){
   yShiftReadEl.textContent = `${formatSigned(yShift,2)} pixel`;
   apparentReadEl.textContent =
     `(${formatNumber(apparentX,2)},${formatNumber(apparentY,2)})`;
-  timeReadEl.textContent = formatNumber(currentEventTime(),2);
+  timeReadEl.textContent = `${formatNumber(currentEventTime(),2)} ms`;
   stageEl.textContent = current.stage;
 
   explainEl.textContent =
-    `左の楔はGy、下の楔はGxです。斜辺の傾きが勾配強度に比例し、赤は＋、青は−の磁場偏位を示します。1回の励起はRFから次のRF直前までです。Gyの印加時間は全kyで一定で、振幅だけを変えて目的kyを選びます。そのためRFからreadout左端到達までの時間は全行で一定です。□は現在のk空間位置で、RFでは原点、Gyでは縦方向、Gx preでは左方向、Gx readoutでは右へ移動します。実空間の青い矢印とk空間に書き込まれるベクトルは、同じ共通時計tと同じ位相式で計算します。オフレゾナンスありでは2πΔf tも両者へ同じように加えます。`+
+    `左の楔はGy、下の楔はGxです。斜辺の傾きが勾配強度に比例し、赤は＋、青は−の磁場偏位を示します。1回の励起はRFから次のRF直前までです。Gyの印加時間は全kyで一定で、振幅だけを変えて目的kyを選びます。そのためRFからreadout左端到達までの時間は全行で一定です。□は現在のk空間位置で、RFでは原点、Gyでは縦方向、Gx preでは左方向、Gx readoutでは右へ移動します。実空間の青い矢印とk空間に書き込まれるベクトルは、RF直後をt=0 msとする同じ時計で計算します。オフレゾナンスありでは信号位相の規約に合わせて−2πΔf tを両者へ同じように加えます。`+
     ` 入力は収集法に依存しないオフレゾナンス Δf としました。`+
     ` Spin warpでは x位置ずれ = Δf × readout時間 = ${formatSigned(shift,2)} pixel。`+
     ` 現在の符号規約では正のΔfは＋x方向へ移動し、FOV外へ出ると反対側へwrapします。`+
