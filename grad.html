@@ -803,16 +803,7 @@ function drawGradientWedge(ctx,orientation,value,label){
     ctx.strokeStyle=outline;
     ctx.stroke();
   }
-
-  function signText(text,x,y,fontSize){
-    ctx.fillStyle="#fff";
-    ctx.font=`900 ${fontSize}px sans-serif`;
-    ctx.textAlign="center";
-    ctx.textBaseline="middle";
-    ctx.fillText(text,x,y);
-  }
-
-  if(orientation==="vertical"){
+if(orientation==="vertical"){
     const top=3, bottom=h-3, cy=h/2;
     const centerX=w/2;
     const neck=Math.max(1.2,w*0.022);
@@ -835,9 +826,7 @@ function drawGradientWedge(ctx,orientation,value,label){
         fillTriangle([[centerX-half,top],[centerX+neck,top],[centerX-neck,cy]],upperColor);
         fillTriangle([[centerX+neck,cy],[centerX-neck,bottom],[centerX+half,bottom]],lowerColor);
       }
-
-      signText(positive?"+":"−",centerX,top+Math.max(11,w*0.22),Math.max(10,Math.round(w*0.20)));
-      signText(positive?"−":"+",centerX,bottom-Math.max(11,w*0.22),Math.max(10,Math.round(w*0.20)));
+signText(positive?"−":"+",centerX,bottom-Math.max(11,w*0.22),Math.max(10,Math.round(w*0.20)));
     }else{
       ctx.strokeStyle=idle;
       ctx.lineWidth=Math.max(1,w*0.025);
@@ -878,9 +867,7 @@ function drawGradientWedge(ctx,orientation,value,label){
         fillTriangle([[left,centerY-half],[left,centerY+neck],[cx,centerY-neck]],leftColor);
         fillTriangle([[cx,centerY+neck],[right,centerY-neck],[right,centerY+half]],rightColor);
       }
-
-      signText(positive?"−":"+",left+Math.max(13,h*0.34),centerY,Math.max(10,Math.round(h*0.28)));
-      signText(positive?"+":"−",right-Math.max(13,h*0.34),centerY,Math.max(10,Math.round(h*0.28)));
+signText(positive?"+":"−",right-Math.max(13,h*0.34),centerY,Math.max(10,Math.round(h*0.28)));
     }else{
       ctx.strokeStyle=idle;
       ctx.lineWidth=Math.max(1,h*0.025);
