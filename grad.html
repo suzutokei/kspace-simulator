@@ -1013,10 +1013,16 @@ function drawReal(){
   const trueCx = g.left+(p-kMin()+0.5)*g.cell;
   const trueCy = g.top+(kMax()-q+0.5)*g.cell;
 
-  // 中心点は明瞭だが、矢印を邪魔しない大きさにする。
+  // 中心点は「のっぺり」見えないよう、濃紺のリング＋白い中心にする。
+  const protonR = Math.max(5.0,g.cell*0.14);
   rctx.fillStyle = "#24427d";
   rctx.beginPath();
-  rctx.arc(trueCx,trueCy,Math.max(4.6,g.cell*0.13),0,Math.PI*2);
+  rctx.arc(trueCx,trueCy,protonR,0,Math.PI*2);
+  rctx.fill();
+
+  rctx.fillStyle = "#ffffff";
+  rctx.beginPath();
+  rctx.arc(trueCx,trueCy,protonR*0.48,0,Math.PI*2);
   rctx.fill();
 
   // 選択プロトンの位相ベクトル。
