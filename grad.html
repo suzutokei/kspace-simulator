@@ -681,6 +681,33 @@ function drawArrow(ctx,cx,cy,angle,length,color,width=2){
   ctx.fill();
 }
 
+function drawEmphasizedArrow(ctx,cx,cy,angle,length,color,width=2.6){
+  const ex = cx+length*Math.cos(angle);
+  const ey = cy-length*Math.sin(angle);
+
+  ctx.strokeStyle = color;
+  ctx.fillStyle = color;
+  ctx.lineWidth = width;
+  ctx.lineCap = "round";
+
+  ctx.beginPath();
+  ctx.moveTo(cx,cy);
+  ctx.lineTo(ex,ey);
+  ctx.stroke();
+
+  // 長い矢印でも矢頭が小さく見えないようにする。
+  const head = Math.min(8,length*0.34);
+  const phi = Math.atan2(ey-cy,ex-cx);
+  const open = 38*Math.PI/180;
+
+  ctx.beginPath();
+  ctx.moveTo(ex,ey);
+  ctx.lineTo(ex-head*Math.cos(phi-open),ey-head*Math.sin(phi-open));
+  ctx.lineTo(ex-head*Math.cos(phi+open),ey-head*Math.sin(phi+open));
+  ctx.closePath();
+  ctx.fill();
+}
+
 function drawOutlinedArrow(ctx,cx,cy,angle,length,color,width=3){
   // 白い縁取りを先に描き、その上に本体を重ねる。
   drawArrow(ctx,cx,cy,angle,length,"rgba(255,255,255,0.98)",width+3.2);
@@ -719,29 +746,6 @@ function reconstructionData(){
     .map(v => ({x:v.x,y:v.y}));
 
   return {values,maxMagnitude,peaks};
-}
-
-function drawPeriodicApparentMarker(ctx,g,x,y){
-  const baseX = g.left+(x-kMin()+0.5)*g.cell;
-  const cy = g.top+(kMax()-y+0.5)*g.cell;
-  const xs = [baseX,baseX-g.size,baseX+g.size];
-
-  xs.forEach(cx => {
-    if(cx>=g.left-2 && cx<=g.left+g.size+2){
-      ctx.strokeStyle = "#d46a16";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(cx,cy,Math.max(7,g.cell*0.20),0,Math.PI*2);
-      ctx.stroke();
-
-      ctx.beginPath();
-      ctx.moveTo(cx-Math.max(5,g.cell*0.13),cy);
-      ctx.lineTo(cx+Math.max(5,g.cell*0.13),cy);
-      ctx.moveTo(cx,cy-Math.max(5,g.cell*0.13));
-      ctx.lineTo(cx,cy+Math.max(5,g.cell*0.13));
-      ctx.stroke();
-    }
-  });
 }
 
 function drawGradientWedge(ctx,orientation,value,label){
@@ -950,17 +954,25 @@ function drawReal(){
   const g = drawGrid(rctx);
   const recon = reconstructionData();
 
-  // 離散再構成像。整数pixelでなければ複数画素へ広がる。
+  // 離散再構成像：塗りつぶさず、オレンジ枠で表示。
+  // 非整数pixel shiftでは複数画素に分布し、強い画素ほど枠を濃く・太くする。
   recon.values.forEach(v => {
     if(recon.maxMagnitude<=0) return;
     const relative = v.magnitude/recon.maxMagnitude;
-    if(relative<0.015) return;
+    if(relative<0.03) return;
 
     const x = g.left+(v.x-kMin())*g.cell;
     const y = g.top+(kMax()-v.y)*g.cell;
 
-    rctx.fillStyle = `rgba(212,106,22,${0.08+0.52*relative})`;
-    rctx.fillRect(x+1,y+1,g.cell-2,g.cell-2);
+    rctx.strokeStyle = `rgba(212,106,22,${0.20+0.80*relative})`;
+    rctx.lineWidth = 0.8 + 2.2*relative;
+    const inset = 2.5;
+    rctx.strokeRect(
+      x+inset,
+      y+inset,
+      g.cell-2*inset,
+      g.cell-2*inset
+    );
   });
 
   labelAxes(rctx,g);
@@ -980,38 +992,21 @@ function drawReal(){
   rctx.fillStyle = "rgba(36,66,125,0.08)";
   rctx.fillRect(trueCellX+1,trueCellY+1,g.cell-2,g.cell-2);
 
-  // 中心点は少し大きく、白い縁を付ける。
-  rctx.fillStyle = "#fff";
-  rctx.beginPath();
-  rctx.arc(trueCx,trueCy,Math.max(6.5,g.cell*0.19),0,Math.PI*2);
-  rctx.fill();
-
+  // 中心点は明瞭だが、矢印を邪魔しない大きさにする。
   rctx.fillStyle = "#24427d";
   rctx.beginPath();
-  rctx.arc(trueCx,trueCy,Math.max(5.2,g.cell*0.145),0,Math.PI*2);
+  rctx.arc(trueCx,trueCy,Math.max(4.6,g.cell*0.13),0,Math.PI*2);
   rctx.fill();
 
-  // 選択された実空間プロトンの位相ベクトル。
-  // 白縁＋太線＋長めにして、8×8/16×16とも視認性を上げる。
+  // 選択プロトンの位相ベクトル。
+  // 二重描画の白縁をやめ、細め・長めの単一矢印にして形をすっきりさせる。
   const protonPhase=selectedProtonGradientPhase();
-  drawOutlinedArrow(
+  drawEmphasizedArrow(
     rctx,trueCx,trueCy,protonPhase,
-    Math.max(18,g.cell*0.48),
+    Math.max(16,g.cell*0.40),
     "#24427d",
-    N===16 ? 2.7 : 3.4
+    N===16 ? 2.3 : 2.9
   );
-
-  // 連続的な見かけ位置
-  drawPeriodicApparentMarker(rctx,g,apparentX,apparentY);
-
-  // 離散再構成の最大画素
-  recon.peaks.forEach(peak => {
-    const x = g.left+(peak.x-kMin())*g.cell;
-    const y = g.top+(kMax()-peak.y)*g.cell;
-    rctx.strokeStyle = "#d46a16";
-    rctx.lineWidth = 1.5;
-    rctx.strokeRect(x+2,y+2,g.cell-4,g.cell-4);
-  });
 
   // 凡例は左右に分け、文字が重ならないよう配置する。
   rctx.font = "11px sans-serif";
@@ -1019,9 +1014,6 @@ function drawReal(){
   rctx.fillStyle = "#24427d";
   rctx.textAlign = "left";
   rctx.fillText("●→ 選択プロトン",g.left,g.top+g.size+55);
-  rctx.fillStyle = "#d46a16";
-  rctx.textAlign = "right";
-  rctx.fillText("○ 見かけの位置",g.left+g.size,g.top+g.size+55);
   rctx.textAlign = "left";
   rctx.textBaseline = "alphabetic";
 }
@@ -1078,16 +1070,16 @@ function drawKspace(){
     // readout中だけ、今この瞬間に書き込まれるベクトルを一時強調。
     if(current.adc){
       const currentPhase=selectedProtonGradientPhase();
-      drawOutlinedArrow(
+      drawEmphasizedArrow(
         kctx,cx,cy,currentPhase,
-        Math.max(10,g.cell*0.39),
+        Math.max(9,g.cell*0.35),
         "#24427d",
-        N===16 ? 2.2 : 3.0
+        N===16 ? 2.0 : 2.6
       );
 
       kctx.fillStyle="#24427d";
       kctx.beginPath();
-      kctx.arc(cx,cy,N===16 ? 1.8 : 2.5,0,Math.PI*2);
+      kctx.arc(cx,cy,N===16 ? 1.5 : 2.2,0,Math.PI*2);
       kctx.fill();
     }
   }
