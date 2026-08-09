@@ -826,7 +826,7 @@ if(orientation==="vertical"){
         fillTriangle([[centerX-half,top],[centerX+neck,top],[centerX-neck,cy]],upperColor);
         fillTriangle([[centerX+neck,cy],[centerX-neck,bottom],[centerX+half,bottom]],lowerColor);
       }
-signText(positive?"−":"+",centerX,bottom-Math.max(11,w*0.22),Math.max(10,Math.round(w*0.20)));
+
     }else{
       ctx.strokeStyle=idle;
       ctx.lineWidth=Math.max(1,w*0.025);
@@ -867,7 +867,7 @@ signText(positive?"−":"+",centerX,bottom-Math.max(11,w*0.22),Math.max(10,Math.
         fillTriangle([[left,centerY-half],[left,centerY+neck],[cx,centerY-neck]],leftColor);
         fillTriangle([[cx,centerY+neck],[right,centerY-neck],[right,centerY+half]],rightColor);
       }
-signText(positive?"+":"−",right-Math.max(13,h*0.34),centerY,Math.max(10,Math.round(h*0.28)));
+
     }else{
       ctx.strokeStyle=idle;
       ctx.lineWidth=Math.max(1,h*0.025);
